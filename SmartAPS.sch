@@ -424,7 +424,7 @@ SDA
 Text Label 1950 2850 2    50   ~ 0
 ALT1
 Text Notes 1100 3100 0    40   ~ 0
-AD = 0x40\nWR = 0x80\nRD = 0x81
+AD = 0x4A\nWR = 0x94\nRD = 0x95
 $Comp
 L BZ_Passive:R R22
 U 1 1 5EB37257
@@ -1382,12 +1382,6 @@ Wire Wire Line
 	750  2850 750  2900
 Wire Wire Line
 	850  2650 850  2750
-Connection ~ 850  2850
-Wire Wire Line
-	850  2850 750  2850
-Connection ~ 850  2750
-Wire Wire Line
-	850  2750 850  2850
 Wire Wire Line
 	950  900  1000 900 
 $Comp
@@ -2417,8 +2411,6 @@ Wire Wire Line
 Wire Wire Line
 	750  2500 750  2550
 Wire Wire Line
-	900  2850 850  2850
-Wire Wire Line
 	900  2550 750  2550
 Wire Wire Line
 	1600 2750 1950 2750
@@ -3095,4 +3087,13 @@ Text Label 9600 3100 1    50   ~ 0
 IR
 Wire Wire Line
 	9600 2750 9600 3100
+Wire Wire Line
+	750  2850 900  2850
+Wire Wire Line
+	850  2750 850  3100
+Wire Wire Line
+	850  3100 700  3100
+Connection ~ 850  2750
+Text Label 700  3100 0    50   ~ 0
+SDA
 $EndSCHEMATC
