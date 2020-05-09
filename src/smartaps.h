@@ -21,6 +21,7 @@ public:
     void loop() override;
     
 protected:
+    unsigned long _timestamp_per10ms;
     unsigned long _timestamp_per1000ms;
     unsigned long _timestamp_per1minute;
     uint64_t _uptime;

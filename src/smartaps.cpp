@@ -111,22 +111,30 @@ void SmartAPS::setup()
     s2.begin(false);
     s3.begin(false);
     beeper.setup();
-    _timestamp_per1000ms = _timestamp_per1minute = millis();
+    _timestamp_per10ms =_timestamp_per1000ms = _timestamp_per1minute = millis();
+    highfreq.start();
 }
 
 
-unsigned long last = 0;
-unsigned long longest = 1000000;
+unsigned long last_exec = 0;
+unsigned long worst = 10000;
 void SmartAPS::loop()
 {
     unsigned long now = millis();
-    display.clearDisplay();
-    terminal.home();
-    terminal.printf("Loop: %lu\n", now - last);
-    if (now - last > longest)
-    longest = now - last;
-    terminal.printf("Longest: %lu\n", longest);
-    last = now;
+    if (now - _timestamp_per10ms >= 9)
+    {
+        display.clearDisplay();
+        terminal.home();
+        terminal.printf("This loop: %lu\n", now - last_exec);
+        if (now - last_exec > worst)
+            worst = now - last_exec;
+        terminal.printf("Worst: %lu\n", worst);
+        last_exec = now;
+        _timestamp_per10ms = now;
+        delay(1);
+        display.display();
+    }
+    /*
     if (now - _timestamp_per1000ms > 1000)
     {
         publish_uptime();
@@ -140,6 +148,7 @@ void SmartAPS::loop()
             sensor_humidity->publish_state(sht20.humidity);
         _timestamp_per1minute = now;
     }
+    */
     uint32_t e1 = s1.update(now);
     uint32_t e2 = s2.update(now);
     uint32_t e3 = s3.update(now);
@@ -150,7 +159,6 @@ void SmartAPS::loop()
         switch (event_id)
         {
             case BUTTON_EVENT_CLICK:
-                longest = 0;
                 sensor_usb_v->publish_state(5.12);
                 sensor_usb_c->publish_state(1.1);
                 terminal.printf("S1 click (%dms)\n", event_param);
@@ -185,6 +193,7 @@ void SmartAPS::loop()
         switch (event_id)
         {
             case BUTTON_EVENT_CLICK:
+                worst = 0;
                 terminal.printf("S2 click (%dms)\n", event_param);
                 break;
             case BUTTON_EVENT_DOWN:
@@ -220,7 +229,6 @@ void SmartAPS::loop()
                 break;
         }
     }
-    display.display();
     beeper.loop();
     sht20.loop();
 }
