@@ -13,8 +13,8 @@ public:
     bool begin(void);
     void display(void);
     void clearDisplay(uint16_t color = 0);
-    void drawPixel(int16_t x, int16_t y, uint16_t color) override;
     void setContrast(uint8_t contrast);
+    void drawPixel(int16_t x, int16_t y, uint16_t color) override;
     void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) override;
     void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) override;
     void scrollUp(int16_t lines);

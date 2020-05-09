@@ -6,7 +6,11 @@ using namespace sequencer;
 
 Sequencer::Sequencer() :  
     _running(false),
-    _actions(NULL)
+    _actions(NULL),
+    _cur_action(0),
+    _cycles(0),
+    _cur_cycle(0),
+    _cur_action_start_time(0)
 {
 }
 
@@ -94,7 +98,6 @@ void Sequencer::stop(void)
 
 void Sequencer::start(const std::vector<action_t>* acts, int cycles)
 {
-    unsigned long now = millis();
     int len = acts->size();
     if (len > 0)
     {
