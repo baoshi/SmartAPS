@@ -1,4 +1,4 @@
-250352026354602
+252128173755646
 BZ_Capacitor
 CP_6.3x5.8
 SMD capacitor, aluminum electrolytic, Panasonic D
@@ -132,6 +132,13 @@ connector JST XH vertical boss
 0
 4
 4
+BZ_Connector
+JST_S4B-PH-SM4-TB
+JST PH series connector, S4B-PH-SM4-TB (http://www.jst-mfg.com/product/pdf/eng/ePH.pdf), generated with kicad-footprint-generator
+connector JST PH side entry
+0
+6
+5
 BZ_Connector
 SCREWTERM-2_3.5P
 Screw Terminal 3.0mm pitch, Pheonix MKDS 1/2-3,5, METZ 31060102
