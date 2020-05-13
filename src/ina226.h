@@ -1,26 +1,14 @@
 #ifndef INA226_H
 #define INA226_H
 
-#include "esphome.h"
-#include "sequencer.h"
-
-using namespace esphome;
-using namespace esphome::sensor;
-using namespace esphome::i2c;
-using namespace sequencer;
-
-class INA226 : public Component, public I2CDevice, public Sequencer
+class INA226
 {
 public:
-    Sensor *temperature;
-    Sensor *humidity;
-    INA226();
-    void setup() override;
-    void loop() override;
-    void dump_config() override;
+    INA226(uint8_t addr);
+    void start(void);
+    bool read(int16_t shunt, int16_t bus);
 private:
-    int _fail_count;
-    bool execute(const action_t& action) override;
+    uint8_t _addr;
 };
 
 #endif // INA226_H

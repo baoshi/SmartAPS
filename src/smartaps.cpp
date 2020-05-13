@@ -1,10 +1,9 @@
+#include <functional>
 #include <Arduino.h>
 #include <Wire.h>
-#include <SPI.h>
 #include <Adafruit_GFX.h>
 #include "ssd1322.h"
 #include "terminal.h"
-#include "sht20.h"
 #include "button.h"
 #include "beeper.h"
 #include "smartaps.h"
@@ -23,7 +22,7 @@ static const char *TAG = "smartaps";
 SSD1322 display(/*mosi*/23, /*sclk*/18, /*cs/*/17, /*dc*/19, /*rst*/5);
 Terminal terminal;
 Beeper beeper;
-SHT20 sht20;
+
 
 #define GPIO_OUT_A      25
 #define GPIO_OUT_B      32
@@ -33,13 +32,17 @@ SHT20 sht20;
 #define GPIO_BUTTON_S2  34
 #define GPIO_BUTTON_S3  35
 
+volatile SemaphoreHandle_t sample_time_sem;
+
 
 SmartAPS::SmartAPS() : _uptime(0)
 {
     sensor_usb_v = new Sensor();
     sensor_usb_c = new Sensor();
-    sensor_temperature = new Sensor();
-    sensor_humidity = new Sensor();
+
+    _sample_timer = NULL;
+    _sample_bufer_mux = portMUX_INITIALIZER_UNLOCKED;
+    _sample_buffer_count = 0;
 }
 
 
@@ -57,19 +60,6 @@ void SmartAPS::register_sensors(void)
     sensor_usb_c->set_unit_of_measurement("A");
     sensor_usb_c->set_accuracy_decimals(1);
     sensor_usb_c->set_force_update(false);
-    // SHT20 temperature
-    App.register_sensor(sensor_temperature);
-    sensor_temperature->set_name("Temperature");
-    sensor_temperature->set_unit_of_measurement("\302\260C");   // degreesign in UTF-8 0xc2 0xb0
-    sensor_temperature->set_accuracy_decimals(1);
-    sensor_temperature->set_force_update(false);
-    // SHT20 humidity
-    App.register_sensor(sensor_humidity);
-    sensor_humidity->set_name("Humidity");
-    sensor_humidity->set_unit_of_measurement("%");
-    sensor_humidity->set_accuracy_decimals(0);
-    sensor_humidity->set_force_update(false);
-    sensor_humidity->set_icon("mdi:water-percent");
 }
 
 
@@ -88,20 +78,43 @@ void SmartAPS::publish_uptime(void)
     uint32_t minutes = (uint32_t)(seconds % 3600) / 60;
     uint32_t hours = (uint32_t)(seconds % 86400) / 3600;
     uint32_t days = (uint32_t)(seconds / 86400);
-    seconds = seconds % 60;
-    const char *fmt = "%d days, %02d:%02d:%02d";
+    // seconds = seconds % 60;
+    const char *fmt = "%d days, %02d:%02d";
     #define UPTIME_LEN 31
     char s[UPTIME_LEN + 1];
-    snprintf(s, UPTIME_LEN, fmt, days, hours, minutes, seconds);
+    snprintf(s, UPTIME_LEN, fmt, days, hours, minutes);
     s[UPTIME_LEN] = '\0';
     this->publish_state(s);
+}
+
+
+
+void SmartAPS::_sample_fn(void * param)
+{
+    SmartAPS* me = reinterpret_cast<SmartAPS*>(param);
+    while (1)
+    {
+        if (xSemaphoreTake(sample_time_sem, portMAX_DELAY) == pdTRUE)
+        {
+            portENTER_CRITICAL(&(me->_sample_bufer_mux));
+            me->_sample_buffer[me->_sample_buffer_count] = millis();
+            ++me->_sample_buffer_count;
+            delay(1);
+            portEXIT_CRITICAL(&(me->_sample_bufer_mux));
+        } 
+    }
+}
+
+
+void IRAM_ATTR on_timer()
+{
+    xSemaphoreGiveFromISR(sample_time_sem, NULL);
 }
 
 
 void SmartAPS::setup()
 {
     Wire.begin();
-    sht20.begin(&Wire);
     display.begin();
     s1.init(GPIO_BUTTON_S1, LOW, INPUT_PULLUP);
     s2.init(GPIO_BUTTON_S2, LOW, INPUT);
@@ -111,44 +124,42 @@ void SmartAPS::setup()
     s2.begin(false);
     s3.begin(false);
     beeper.setup();
-    _timestamp_per10ms =_timestamp_per1000ms = _timestamp_per1minute = millis();
-    highfreq.start();
+    _timestamp_per_1s = _timestamp_per_1m = millis();
+    
+    sample_time_sem = xSemaphoreCreateBinary();
+    _sample_timer = timerBegin(0, 80, true);    // 1us timer, count up
+    timerAttachInterrupt(_sample_timer, on_timer, true);
+    _sample_bufer_mux = portMUX_INITIALIZER_UNLOCKED;
+    _sample_buffer_count = 0;
+    xTaskCreate(_sample_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, NULL); // priority 2 is higher than loop() priority which is 1
 }
 
 
-unsigned long last_exec = 0;
-unsigned long worst = 10000;
 void SmartAPS::loop()
 {
     unsigned long now = millis();
-    if (now - _timestamp_per10ms >= 9)
+    if (now - _timestamp_per_1s > 1000)
     {
-        display.clearDisplay();
-        terminal.home();
-        terminal.printf("This loop: %lu\n", now - last_exec);
-        if (now - last_exec > worst)
-            worst = now - last_exec;
-        terminal.printf("Worst: %lu\n", worst);
-        last_exec = now;
-        _timestamp_per10ms = now;
-        delay(1);
-        display.display();
+        _timestamp_per_1s = now;
     }
-    /*
-    if (now - _timestamp_per1000ms > 1000)
+    if (now - _timestamp_per_1m > 60000)
     {
         publish_uptime();
-        _timestamp_per1000ms = now;
+        _timestamp_per_1m = now;
     }
-    if (now - _timestamp_per1minute > 60000)
+    // Process sample buffer
+    bool have_sample = false;
+    portENTER_CRITICAL(&_sample_bufer_mux);
+    for (int i = 0; i < _sample_buffer_count; ++i)
     {
-        if (!isnan(sht20.temperature))
-            sensor_temperature->publish_state(sht20.temperature);
-        if (!isnan(sht20.humidity))
-            sensor_humidity->publish_state(sht20.humidity);
-        _timestamp_per1minute = now;
+        have_sample = true;
+        terminal.printf("Sample %lu ", _sample_buffer[i]);
     }
-    */
+    _sample_buffer_count = 0;
+    portEXIT_CRITICAL(&_sample_bufer_mux);
+    if (have_sample)
+        terminal.println();
+    // Process buttons
     uint32_t e1 = s1.update(now);
     uint32_t e2 = s2.update(now);
     uint32_t e3 = s3.update(now);
@@ -193,12 +204,13 @@ void SmartAPS::loop()
         switch (event_id)
         {
             case BUTTON_EVENT_CLICK:
-                worst = 0;
                 terminal.printf("S2 click (%dms)\n", event_param);
+                timerAlarmWrite(_sample_timer, 10000, true);    // 10ms
+                timerAlarmEnable(_sample_timer);
                 break;
             case BUTTON_EVENT_DOWN:
                 terminal.printf("S2 down (%dms)\n", event_param);
-                beeper.beep2();
+                //beeper.beep2();
                 break;
             case BUTTON_EVENT_HOLD_START:
                 terminal.printf("S2 hold start (%dms)\n", event_param);
@@ -216,10 +228,11 @@ void SmartAPS::loop()
         {
             case BUTTON_EVENT_CLICK:
                 terminal.printf("S3 click (%dms)\n", event_param);
+                timerAlarmDisable(_sample_timer);
                 break;
             case BUTTON_EVENT_DOWN:
                 terminal.printf("S3 down (%dms)\n", event_param);
-                beeper.beep3();
+                //beeper.beep3();
                 break;
             case BUTTON_EVENT_HOLD_START:
                 terminal.printf("S3 hold start (%dms)\n", event_param);
@@ -230,7 +243,7 @@ void SmartAPS::loop()
         }
     }
     beeper.loop();
-    sht20.loop();
+    display.display();
 }
 
 

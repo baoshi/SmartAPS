@@ -4,7 +4,6 @@
 
 #include "esphome.h"
 #include "button.h"
-#include "sht20.h"
 
 
 using namespace esphome;
@@ -21,15 +20,20 @@ public:
     void loop() override;
     
 protected:
-    unsigned long _timestamp_per10ms;
-    unsigned long _timestamp_per1000ms;
-    unsigned long _timestamp_per1minute;
+    unsigned long _timestamp_per_1s;
+    unsigned long _timestamp_per_1m;
     uint64_t _uptime;
     Button s1, s2, s3;
     Sensor *sensor_usb_v, *sensor_usb_c;
-    Sensor *sensor_temperature, *sensor_humidity;
     void publish_uptime(void);
     HighFrequencyLoopRequester highfreq;
+
+private:
+    portMUX_TYPE _sample_bufer_mux;
+    unsigned long _sample_buffer[1000];
+    int _sample_buffer_count;
+    static void _sample_fn(void *);
+    hw_timer_t *_sample_timer;
 };
 
 
