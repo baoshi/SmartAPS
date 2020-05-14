@@ -287,9 +287,9 @@ void setup() {
   esp32_ble_tracker_esp32bletracker->register_listener(studyroom_sensor);
   esp32_ble_tracker_esp32bletracker->register_listener(filament_sensor);
   out_a->set_pin(new GPIOPin(25, OUTPUT, false));
-  out_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
+  out_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
   out_b->set_pin(new GPIOPin(32, OUTPUT, false));
-  out_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
+  out_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
   out_usb->set_pin(new GPIOPin(16, OUTPUT, false));
   out_usb->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
   xiaomi_sensor1->set_address(0x4C65A8DD6F59ULL);

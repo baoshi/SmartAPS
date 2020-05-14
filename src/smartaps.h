@@ -29,9 +29,11 @@ protected:
     HighFrequencyLoopRequester highfreq;
 
 private:
-    portMUX_TYPE _sample_bufer_mux;
-    unsigned long _sample_buffer[1000];
-    int _sample_buffer_count;
+    portMUX_TYPE _sample_buffer_mux;
+    const static int _sample_buffer_length = 64;
+    int16_t _sample_buffer_v[_sample_buffer_length];
+    int16_t _sample_buffer_c[_sample_buffer_length];
+    int _sample_count;
     static void _sample_fn(void *);
     hw_timer_t *_sample_timer;
 };
