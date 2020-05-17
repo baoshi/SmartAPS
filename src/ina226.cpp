@@ -39,11 +39,17 @@ void INA226::write16(uint8_t reg, uint16_t val)
 } 
 
 
-void INA226::begin(TwoWire* bus, uint8_t addr)
+void INA226::init(TwoWire* bus, uint8_t addr)
 {
     _bus = bus;
     _addr = addr;
-    /*
+}
+
+
+void INA226::start(uint8_t mode)
+{
+    // TODO: More modes
+     /*
      * shunt measurement at 1.1ms
      * bus measurement at 1.1ms
      * 4 average
@@ -52,7 +58,6 @@ void INA226::begin(TwoWire* bus, uint8_t addr)
      * CFG = 0100 0011 0010 0111
      */
     write16(0x00, 0x4327);
-    // TODO: Set alert
 }
 
 

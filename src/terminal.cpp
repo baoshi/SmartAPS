@@ -64,6 +64,5 @@ size_t Terminal::write(const uint8_t *buffer, size_t size)
         cnt += write(*buffer++);
         size--;
     }
-    // _display->display();
     return cnt;
 }

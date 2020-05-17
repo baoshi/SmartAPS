@@ -11,13 +11,7 @@
 
 
 
-SSD1322::SSD1322(int8_t mosi, int8_t sclk, int8_t cs, int8_t dc, int8_t rst) : 
-    Adafruit_GFX(SSD1322_WIDTH, SSD1322_HEIGHT),
-    _mosi(mosi),
-    _sclk(sclk),
-    _cs(cs),
-    _dc(dc),
-    _rst(rst)
+SSD1322::SSD1322() : Adafruit_GFX(SSD1322_WIDTH, SSD1322_HEIGHT)
 {
     _buf = NULL;
 }
@@ -59,7 +53,7 @@ void SSD1322::_data(uint8_t* buf, uint32_t len)
 }
 
 
-bool SSD1322::begin()
+bool SSD1322::init(int8_t mosi, int8_t sclk, int8_t cs, int8_t dc, int8_t rst)
 {
     if (!_buf)
     {
@@ -67,8 +61,8 @@ bool SSD1322::begin()
         if (!_buf)
             return false;
     }
-    
-    SPI.begin(_sclk, -1, _mosi);
+    _cs = cs; _dc = dc; _rst = rst;
+    SPI.begin(sclk, -1, mosi);
     SPI.setFrequency(SSD1322_FREQ);
     pinMode(_cs, OUTPUT);
     digitalWrite(_cs, HIGH);

@@ -267,11 +267,11 @@ void setup() {
   restart_restartswitch->set_name("Smart APS Restart");
   restart_restartswitch->set_icon("mdi:restart");
   App.register_switch(out_a);
-  out_a->set_name("12V Output A");
+  out_a->set_name("Port A");
   App.register_switch(out_b);
-  out_b->set_name("12V Output B");
+  out_b->set_name("Port B");
   App.register_switch(out_usb);
-  out_usb->set_name("USB Output");
+  out_usb->set_name("USB");
   custom::CustomTextSensorConstructor smartaps = custom::CustomTextSensorConstructor([=]() -> std::vector<text_sensor::TextSensor *> {
       auto sa = new SmartAPS();
       sa->register_sensors();

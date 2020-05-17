@@ -8,9 +8,9 @@
 
 class SSD1322 : public Adafruit_GFX {
 public:
-    SSD1322(int8_t mosi, int8_t sclk, int8_t cs, int8_t dc, int8_t rst = -1);
+    SSD1322();
     ~SSD1322(void);
-    bool begin(void);
+    bool init(int8_t mosi, int8_t sclk, int8_t cs, int8_t dc, int8_t rst = -1);
     void display(void);
     void clearDisplay(uint16_t color = 0);
     void setContrast(uint8_t contrast);
@@ -23,7 +23,7 @@ private:
     void _command(uint8_t cmd);
     void _data(uint8_t data);
     void _data(uint8_t* buf, uint32_t len);
-    uint8_t _mosi, _sclk, _cs, _dc, _rst;
+    uint8_t _cs, _dc, _rst;
     uint8_t *_buf;
 };
 

@@ -8,7 +8,8 @@ class INA226
 {
 public:
     INA226();
-    void begin(TwoWire* bus, uint8_t addr);
+    void init(TwoWire* bus, uint8_t addr);
+    void start(uint8_t mode);
     bool read(int16_t& shunt, int16_t& bus);
 private:
     TwoWire* _bus;

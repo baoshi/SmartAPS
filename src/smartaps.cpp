@@ -1,48 +1,27 @@
-#include <functional>
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include "ssd1322.h"
-#include "terminal.h"
-#include "button.h"
-#include "beeper.h"
-#include "ina226.h"
+#include "shell_overview.h"
 #include "smartaps.h"
 
 
 using namespace esphome;
 using namespace esphome::sensor;
 
-extern sntp::SNTPComponent *sntp_time;
-extern gpio::GPIOSwitch *out_a;
-extern gpio::GPIOSwitch *out_b;
-extern gpio::GPIOSwitch *out_usb;
 
 static const char *TAG = "smartaps";
 
-SSD1322 display(/*mosi*/23, /*sclk*/18, /*cs/*/17, /*dc*/19, /*rst*/5);
-Terminal terminal;
-Beeper beeper;
-INA226 ina226_a, ina226_b, ina226_usb;
-
-
-#define GPIO_OUT_A      25
-#define GPIO_OUT_B      32
-#define GPIO_OUT_USB    16
-
-#define GPIO_BUTTON_S1  0
-#define GPIO_BUTTON_S2  34
-#define GPIO_BUTTON_S3  35
-
-
 SmartAPS::SmartAPS() :
-    _uptime(0),
-    _sample_buffer_mux(portMUX_INITIALIZER_UNLOCKED),
-    _sample_count(0),
-    _sample_timer(NULL)
+    overview_shell(this)
 {
     sensor_usb_v = new Sensor();
     sensor_usb_c = new Sensor();
+    sensor_out_a_v = new Sensor();
+    sensor_out_a_c = new Sensor();
+    sensor_out_b_v = new Sensor();
+    sensor_out_b_c = new Sensor();
+    _uptime = 0;
+    _cur_shell = NULL;
+    _next_shell = NULL;
 }
 
 
@@ -60,10 +39,34 @@ void SmartAPS::register_sensors(void)
     sensor_usb_c->set_unit_of_measurement("A");
     sensor_usb_c->set_accuracy_decimals(1);
     sensor_usb_c->set_force_update(false);
+    // OUT A Voltage
+    App.register_sensor(sensor_out_a_v);
+    sensor_out_a_v->set_name("Port A Voltage");
+    sensor_out_a_v->set_unit_of_measurement("V");
+    sensor_out_a_v->set_accuracy_decimals(1);
+    sensor_out_a_v->set_force_update(false);
+    // OUT A Current
+    App.register_sensor(sensor_out_a_c);
+    sensor_out_a_c->set_name("Port A Current");
+    sensor_out_a_c->set_unit_of_measurement("A");
+    sensor_out_a_c->set_accuracy_decimals(1);
+    sensor_out_a_c->set_force_update(false);
+    // OUT B Voltage
+    App.register_sensor(sensor_out_b_v);
+    sensor_out_b_v->set_name("Port B Voltage");
+    sensor_out_b_v->set_unit_of_measurement("V");
+    sensor_out_b_v->set_accuracy_decimals(1);
+    sensor_out_b_v->set_force_update(false);
+    // OUT B Current
+    App.register_sensor(sensor_out_b_c);
+    sensor_out_b_c->set_name("Port B Current");
+    sensor_out_b_c->set_unit_of_measurement("A");
+    sensor_out_b_c->set_accuracy_decimals(1);
+    sensor_out_b_c->set_force_update(false);
 }
 
 
-void SmartAPS::publish_uptime(void)
+void SmartAPS::_publish_uptime(void)
 {
     const uint32_t ms = millis();
     const uint64_t ms_mask = (1ULL << 32) - 1ULL;
@@ -87,7 +90,7 @@ void SmartAPS::publish_uptime(void)
     this->publish_state(s);
 }
 
-
+/*
 #define SAMPLE_BIT  0x01
 #define STOP_BIT     0x02
 static TaskHandle_t sample_task_handle;
@@ -111,7 +114,7 @@ void SmartAPS::_sample_fn(void * param)
             if ((notify_val & SAMPLE_BIT) != 0)
             {
                 int16_t s, b;
-                if (ina226_a.read(s, b))
+                if (me->ina226_usb.read(s, b))
                 {
                     portENTER_CRITICAL(&(me->_sample_buffer_mux));
                     if (me->_sample_count < me->_sample_buffer_length)
@@ -154,41 +157,57 @@ void IRAM_ATTR on_timer()
         }
     }
 }
-
+*/
 
 void SmartAPS::setup()
 {
-    Wire.begin();
-    ina226_a.begin(&Wire, 0x4a);
-    ina226_b.begin(&Wire, 0x41);
-    ina226_usb.begin(&Wire, 0x45);
-    display.begin();
-    s1.init(GPIO_BUTTON_S1, LOW, INPUT_PULLUP);
-    s2.init(GPIO_BUTTON_S2, LOW, INPUT);
-    s3.init(GPIO_BUTTON_S3, LOW, INPUT);
+    // Display
+    display.init(/*mosi*/23, /*sclk*/18, /*cs/*/17, /*dc*/19, /*rst*/5);
+    // Buttons
+    sw1.init(GPIO_BUTTON_S1, LOW, INPUT_PULLUP);
+    sw2.init(GPIO_BUTTON_S2, LOW, INPUT);
+    sw3.init(GPIO_BUTTON_S3, LOW, INPUT);
+    // Beeper
+    beeper.begin();
+    // INA226
+    Wire.begin(SDA_PIN, SCL_PIN, 400000);
+    ina226_port_a.init(&Wire, INA226_ADDR_PORT_A);
+    ina226_port_b.init(&Wire, INA226_ADDR_PORT_B);
+    ina226_usb.init(&Wire, INA226_ADDR_USB);
+    // Button        
+    sw1.begin(false);
+    sw2.begin(false);
+    sw3.begin(false);
+    // Terminal 
     terminal.begin(&display);
-    s1.begin(false);
-    s2.begin(false);
-    s3.begin(false);
-    beeper.setup();
-    _timestamp_per_1s = _timestamp_per_1m = millis();
-    _sample_timer = timerBegin(0, 80, true);    // 1us timer, count up
-    timerAttachInterrupt(_sample_timer, on_timer, true);
+    // Timestamps
+    _timestamp_per_1m = millis();
+    _cur_shell = NULL;
+    _next_shell = &overview_shell;
+    //_sample_timer = timerBegin(0, 80, true);    // 1us timer, count up
+    //timerAttachInterrupt(_sample_timer, on_timer, true);
+    display.clearDisplay();
+    display.display();
 }
 
 
 void SmartAPS::loop()
 {
     unsigned long now = millis();
-    if (now - _timestamp_per_1s > 1000)
-    {
-        _timestamp_per_1s = now;
-    }
     if (now - _timestamp_per_1m > 60000)
     {
-        publish_uptime();
+        _publish_uptime();
         _timestamp_per_1m = now;
     }
+    if (_next_shell != _cur_shell)
+    {
+        if (_cur_shell != NULL) _cur_shell->leave(now);
+        if (_next_shell != NULL) _next_shell->enter(now);
+        _cur_shell = _next_shell;
+    }
+    _next_shell = _cur_shell->loop(now);
+
+#if 0    
     // Process sample buffer
     portENTER_CRITICAL(&_sample_buffer_mux);
     for (int i = 0; i < _sample_count; ++i)
@@ -199,12 +218,15 @@ void SmartAPS::loop()
         float c = s / 10000.0f; // ( * 2.5 / 1000000 / 0.025);
         terminal.printf("%.2fV, %.3fA\n", v, c);
         */
-       terminal.printf("%d, %d\n", _sample_buffer_v[i], _sample_buffer_c[i]);
-       if ((_sample_buffer_v[i] == -1) || (_sample_buffer_c[i] == -1))
+       int16_t v = _sample_buffer_v[i];
+       int16_t c = _sample_buffer_c[i];
+       terminal.printf("%.2fV, %.3fA\n", v * 0.00125, c / 10000.0f);
+       if ((v == -1) || (c == -1) )
        {
             timerAlarmDisable(_sample_timer);
             xTaskNotify(sample_task_handle, STOP_BIT, eSetBits);
             sample_task_handle = NULL;
+            beeper.beep1();
        }
     }
     _sample_count = 0;
@@ -220,8 +242,6 @@ void SmartAPS::loop()
         switch (event_id)
         {
             case BUTTON_EVENT_CLICK:
-                sensor_usb_v->publish_state(5.12);
-                sensor_usb_c->publish_state(1.1);
                 terminal.printf("S1 click (%dms)\n", event_param);
                 if (id(sntp_time).now().is_valid())
                 {
@@ -257,8 +277,8 @@ void SmartAPS::loop()
                 //terminal.printf("S2 click (%dms)\n", event_param);
                 if (sample_task_handle == NULL)
                 {
-                    xTaskCreate(_sample_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, &sample_task_handle);
-                    timerAlarmWrite(_sample_timer, 50000, true);    // 50ms
+                    xTaskCreatePinnedToCore(_sample_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, &sample_task_handle, 1);
+                    timerAlarmWrite(_sample_timer, 10000, true);    // 10ms
                     timerAlarmEnable(_sample_timer);
                 }
                 break;
@@ -301,10 +321,5 @@ void SmartAPS::loop()
                 break;
         }
     }
-    beeper.loop();
-    display.display();
+#endif
 }
-
-
-
-

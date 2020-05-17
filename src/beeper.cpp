@@ -38,7 +38,7 @@ Beeper::Beeper()
 }
 
 
-void Beeper::setup(void)
+void Beeper::begin(void)
 {
     ledcSetup(BEEPER_LEDC_CHANNEL, 3000, 8);    // Set at 3000Hz 8Bit  as initial
     ledcAttachPin(BEEPER_GPIO, BEEPER_LEDC_CHANNEL);
