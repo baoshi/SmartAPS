@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "shell_overview.h"
 #include "smartaps.h"
 
 
@@ -11,7 +10,8 @@ using namespace esphome::sensor;
 static const char *TAG = "smartaps";
 
 SmartAPS::SmartAPS() :
-    overview_shell(this)
+    shell_overview(this),
+    shell_detail(this)
 {
     sensor_usb_v = new Sensor();
     sensor_usb_c = new Sensor();
@@ -162,7 +162,7 @@ void IRAM_ATTR on_timer()
 void SmartAPS::setup()
 {
     // Display
-    display.init(/*mosi*/23, /*sclk*/18, /*cs/*/17, /*dc*/19, /*rst*/5);
+    oled.init(/*mosi*/23, /*sclk*/18, /*cs/*/17, /*dc*/19, /*rst*/5);
     // Buttons
     sw1.init(GPIO_BUTTON_S1, LOW, INPUT_PULLUP);
     sw2.init(GPIO_BUTTON_S2, LOW, INPUT);
@@ -179,15 +179,18 @@ void SmartAPS::setup()
     sw2.begin(false);
     sw3.begin(false);
     // Terminal 
-    terminal.begin(&display);
+    terminal.begin(&oled);
     // Timestamps
     _timestamp_per_1m = millis();
+    // Shells
+    shell_overview.init();
+    shell_detail.init();
     _cur_shell = NULL;
-    _next_shell = &overview_shell;
+    _next_shell = &shell_overview;
     //_sample_timer = timerBegin(0, 80, true);    // 1us timer, count up
     //timerAttachInterrupt(_sample_timer, on_timer, true);
-    display.clearDisplay();
-    display.display();
+    oled.clearDisplay();
+    oled.display();
 }
 
 

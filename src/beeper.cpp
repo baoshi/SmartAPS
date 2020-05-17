@@ -45,6 +45,18 @@ void Beeper::begin(void)
 }
 
 
+void Beeper::stop(void)
+{
+    ledcWrite(BEEPER_LEDC_CHANNEL, 0);
+    if (_highfreq_requested)
+    {
+        _highfreq_requested = false;
+        _highfreq.stop();
+    }
+    Sequencer::stop();
+}
+
+
 void Beeper::loop(void)
 {
     // Sequencer::loop return false if sequence finished
@@ -68,6 +80,7 @@ bool Beeper::execute(const action_t* action)
     }
     else
     {
+        // stop
         ledcWrite(BEEPER_LEDC_CHANNEL, 0);
     }
     return true;

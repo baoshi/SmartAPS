@@ -12,6 +12,7 @@ class Beeper : public Sequencer
 public:
     Beeper();
     void begin(void);
+    void stop(void);
     void loop(void);
     void beep1(void);
     void beep2(void);

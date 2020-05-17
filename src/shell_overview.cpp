@@ -11,6 +11,10 @@ extern gpio::GPIOSwitch *out_a;
 extern gpio::GPIOSwitch *out_b;
 extern gpio::GPIOSwitch *out_usb;
 
+
+static const char *TAG = "ovshell";
+
+
 /*
  * Overview shell
  * Actions:
@@ -39,30 +43,36 @@ OverviewShell::~OverviewShell()
 
 void OverviewShell::init(void)
 {
-    _sa->ina226_port_a.start(0);
-    _sa->ina226_port_b.start(0);
-    _sa->ina226_usb.start(0);
 }
 
 
 void OverviewShell::enter(unsigned long now)
 {
-    _sa->display.clearDisplay();
-    _sa->display.setTextColor(0x0F);
+    ESP_LOGD(TAG, "Enter Overview Shell");
+    _sa->oled.clearDisplay();
+    _sa->oled.setTextColor(0x0F);
+    _sa->terminal.home();
+    _sa->oled.display();
     _timestamp_per_1s = now;
 }
 
 
 void OverviewShell::leave(unsigned long now)
 {
+    _sa->beeper.stop();
+    ESP_LOGD(TAG, "Leave Overview Shell");
 }
 
 
 Shell* OverviewShell::loop(unsigned long now)
 {
     uint32_t e1 = _sa->sw1.update(now);
-    uint32_t e2 = _sa->sw2.update(now);
-    uint32_t e3 = _sa->sw3.update(now);
+    uint32_t event_id = BUTTON_EVENT_ID(e1);
+    uint32_t event_param = BUTTON_EVENT_PARAM(e1);
+    if (event_id == BUTTON_EVENT_CLICK)
+    {
+        return (&(_sa->shell_detail));
+    }
     if (now - _timestamp_per_1s > 1000)
     {
         if (id(sntp_time).now().is_valid())
@@ -75,7 +85,7 @@ Shell* OverviewShell::loop(unsigned long now)
         {
             _sa->terminal.println("No time yet");
         }
-        _sa->display.display();
+        _sa->oled.display();
         _timestamp_per_1s = now;
     }
     _sa->beeper.loop();

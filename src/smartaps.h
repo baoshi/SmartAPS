@@ -10,6 +10,7 @@
 #include "ina226.h"
 #include "shell.h"
 #include "shell_overview.h"
+#include "shell_detail.h"
 
 
 using namespace esphome;
@@ -50,13 +51,14 @@ public:
     Sensor *sensor_out_a_v, *sensor_out_a_c;
     Sensor *sensor_out_b_v, *sensor_out_b_c;
     
-    SSD1322 display;
+    SSD1322 oled;
     Terminal terminal;
     Button sw1, sw2, sw3;
     Beeper beeper;
     INA226 ina226_port_a, ina226_port_b, ina226_usb;
 
-    OverviewShell overview_shell;
+    OverviewShell shell_overview;
+    DetailShell shell_detail;
 
 private:    // TextSensor related
     uint64_t _uptime;
