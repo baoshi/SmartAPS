@@ -8,7 +8,6 @@
 #include "button.h"
 #include "beeper.h"
 #include "ina226.h"
-#include "temt6000.h"
 #include "shell.h"
 #include "shell_overview.h"
 #include "shell_detail.h"

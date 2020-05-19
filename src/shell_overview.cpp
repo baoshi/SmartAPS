@@ -14,7 +14,7 @@ extern gpio::GPIOSwitch *out_port_a;
 extern gpio::GPIOSwitch *out_port_b;
 extern gpio::GPIOSwitch *out_usb;
 
-#define LOWLIGHT_THRESHOLD      15      // below this value is considered dark room
+#define LOWLIGHT_THRESHOLD      5       // below this value is considered dark room
 #define AUTO_OFF_TIMER          30000   // turn off display 30 seconds after room go dark
 
 static const char *TAG = "ovshell";
@@ -32,7 +32,7 @@ static const char *TAG = "ovshell";
  * Time
  * WiFi signal strength
  * 
- * Turn off display if ambient light low for 30sec
+ * Turn off display if all output is off (current low)
  * 
  * Publishes:
  * V/A of all channels every  5 second
@@ -73,6 +73,9 @@ void OverviewShell::enter(unsigned long now)
 void OverviewShell::leave(unsigned long now)
 {
     _sa->beeper.stop();
+    _sa->ina226_port_a.reset();
+    _sa->ina226_port_b.reset();
+    _sa->ina226_usb.reset();
     ESP_LOGD(TAG, "Leave Overview Shell");
 }
 
@@ -90,7 +93,9 @@ Shell* OverviewShell::loop(unsigned long now)
     if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_CLICK)
     {
         button_clicked = true;
-        if (_display_on)    // If click button in the dark, just bring up the interface
+        // If button pressed while display is off,
+        // only turn on display, don't toggle output.
+        if (_display_on)
             out_port_a->toggle();
     }
     if (BUTTON_EVENT_ID(e3) == BUTTON_EVENT_CLICK)
@@ -101,15 +106,50 @@ Shell* OverviewShell::loop(unsigned long now)
     }
     if (button_clicked)
     {
-        // Turn on display if key pressed
+        // Turn on display if button pressed
         // Also reset auto-off timer
         if (!_display_on)
         {
+            ESP_LOGI(TAG, "Turning on OLED");
             _sa->oled.on();
             _display_on = true;
         }
         _timestamp_light_off = 0;
     }
+    else
+    {
+        // no button click, determine whether turn off display by
+        // measure ambient light
+        float lx = _sa->temt6000.read();
+        if (lx > LOWLIGHT_THRESHOLD)
+        {
+            if (!_display_on)
+            {
+                ESP_LOGD(TAG, "Light = %d lux", (int)lx);
+                ESP_LOGI(TAG, "Turning on OLED");
+                _sa->oled.on();
+                _display_on = true;
+                _timestamp_light_off = 0;
+            }
+        }
+        else
+        {
+            // Low ambient light
+            if (_display_on)
+            {
+                if (_timestamp_light_off == 0)
+                    _timestamp_light_off = now;
+                if (now - _timestamp_light_off > AUTO_OFF_TIMER)
+                {
+                    ESP_LOGD(TAG, "Light = %d lux", (int)lx);
+                    ESP_LOGI(TAG, "Turning off OLED");
+                    _sa->oled.off();
+                    _display_on = false;
+                }
+            }
+        }
+    }
+    // Update UI if button pressed or 2fps due
     if (button_clicked || (now - _timestamp_per_500ms > 500))
     {
         _sa->ina226_port_a.read(_port_a_s, _port_a_b);
@@ -119,6 +159,7 @@ Shell* OverviewShell::loop(unsigned long now)
             draw_ui();
         _timestamp_per_500ms = now;
     }
+    // Publish reading every 5 seconds
     if (now - _timestamp_per_5000ms > 5000)
     {
         float v, c;
@@ -139,34 +180,6 @@ Shell* OverviewShell::loop(unsigned long now)
         _sa->sensor_port_b_c->publish_state(c);
         _timestamp_per_5000ms = now;
     }
-    float lx = _sa->temt6000.read();
-    if (lx > LOWLIGHT_THRESHOLD)
-    {
-        if (!_display_on)
-        {
-            ESP_LOGD(TAG, "Light = %d lux", (int)lx);
-            ESP_LOGI(TAG, "Turning on OLED");
-            _sa->oled.on();
-            _display_on = true;
-            _timestamp_light_off = 0;
-        }
-    }
-    else
-    {
-        if (_display_on)
-        {
-            if (_timestamp_light_off == 0)
-                _timestamp_light_off = now;
-            if (now - _timestamp_light_off > AUTO_OFF_TIMER)
-            {
-                ESP_LOGD(TAG, "Light = %d lux", (int)lx);
-                ESP_LOGI(TAG, "Turning off OLED due to room light off");
-                _sa->oled.off();
-                _display_on = false;
-            }
-        }
-    }
-    
     _sa->beeper.loop();
     return this;
 }

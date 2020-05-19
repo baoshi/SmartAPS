@@ -27,6 +27,90 @@ static const char *TAG = "dtshell";
  */
 
 
+#define SAMPLE_BIT      0x01
+#define STOP_BIT        0x02
+
+static TaskHandle_t sampling_task_handle;
+hw_timer_t *sampling_timer;
+
+portMUX_TYPE sample_buffer_muxtex = portMUX_INITIALIZER_UNLOCKED;
+const static int sample_buffer_length = 64;
+int sample_count = 0;
+int16_t sample_buffer_b[sample_buffer_length];
+int16_t sample_buffer_s[sample_buffer_length];
+
+
+void sampling_fn(void * param)
+{
+    DetailShell* ds = reinterpret_cast<DetailShell*>(param);
+    sample_count = 0;
+    uint32_t notify;
+    ESP_LOGI(TAG, "Sampling task started");
+    for (;;)
+    {
+        if (xTaskNotifyWait(pdFALSE, ULONG_MAX, &notify, portMAX_DELAY) == pdPASS)
+        {
+            if ((notify & STOP_BIT) != 0)
+            {
+                // TODO:: Cleanup
+                break;
+            } // STOP_BIT
+            if ((notify & SAMPLE_BIT) != 0)
+            {
+                int16_t s, b;
+                switch (ds->_channel)
+                {
+                case CHANNEL_PORT_A:
+                    ds->_sa->ina226_port_a.read(s, b);
+                    ds->_sa->ina226_port_a.start(SAMPLE_MODE_10MS_TRIGGERED);
+                    break;
+                case CHANNEL_PORT_B:
+                    ds->_sa->ina226_port_b.read(s, b);
+                    ds->_sa->ina226_port_b.start(SAMPLE_MODE_10MS_TRIGGERED);
+                    break;
+                case CHANNEL_USB:
+                    ds->_sa->ina226_usb.read(s, b);
+                    ds->_sa->ina226_usb.start(SAMPLE_MODE_10MS_TRIGGERED);
+                    break;
+                }
+                portENTER_CRITICAL(&sample_buffer_muxtex);
+                if (sample_count < sample_buffer_length)
+                {
+                    sample_buffer_s[sample_count] = s;
+                    sample_buffer_b[sample_count] = b;
+                    ++sample_count;
+                }
+                else
+                {
+                    ESP_LOGW(TAG, "Sample buffer overflow");
+                }
+                portEXIT_CRITICAL(&sample_buffer_muxtex);
+            } // SAMPLE_BIT
+        } // xTaskNotify
+        else
+        {
+            // xTaskNotify failed, shall not happen
+        }
+    }  // for (;;)
+    ESP_LOGI(TAG, "Sampling task end");
+    vTaskDelete(NULL);
+}
+
+
+void IRAM_ATTR on_sampling_timer()
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    if (sampling_task_handle != NULL)
+    {
+        xTaskNotifyFromISR(sampling_task_handle, SAMPLE_BIT, eSetBits, &xHigherPriorityTaskWoken);
+        if (xHigherPriorityTaskWoken)
+        {
+            portYIELD_FROM_ISR ();
+        }
+    }
+}
+
+
 DetailShell::DetailShell(SmartAPS* sa) : Shell(sa)
 {
 }
@@ -47,29 +131,29 @@ void DetailShell::init(void)
 void DetailShell::enter(unsigned long now)
 {
     ESP_LOGD(TAG, "Enter Detail Shell channel %d", _channel);
-    _sa->oled.clearDisplay();
-    _sa->oled.setTextColor(0x0F);
-    _sa->oled.setFont(NULL);
-    _sa->terminal.home();
+    _sa->oled.reset();  // This force display to on
     switch (_channel)
     {
     case CHANNEL_PORT_A:
-        _sa->terminal.println("Port A");
         break;
     case CHANNEL_PORT_B:
-        _sa->terminal.println("Port B");
         break;
     case CHANNEL_USB:
-        _sa->terminal.println("USB");
         break;
     }
-    _sa->oled.display();
 }
 
 
 void DetailShell::leave(unsigned long now)
 {
     _sa->beeper.stop();
+    timerAlarmDisable(sampling_timer);
+    if (sampling_task_handle != NULL)
+    {
+        xTaskNotify(sampling_task_handle, STOP_BIT, eSetBits);
+        // TODO: Do we need to wait thread join?
+        sampling_task_handle = NULL;
+    }
     ESP_LOGD(TAG, "Leave Detail Shell channel %d", _channel);
 }
 
