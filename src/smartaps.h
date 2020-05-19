@@ -8,6 +8,7 @@
 #include "button.h"
 #include "beeper.h"
 #include "ina226.h"
+#include "temt6000.h"
 #include "shell.h"
 #include "shell_overview.h"
 #include "shell_detail.h"
@@ -33,6 +34,8 @@ using namespace esphome::text_sensor;
 #define INA226_ADDR_PORT_A  0x4a
 #define INA226_ADDR_PORT_B  0x41
 
+#define GPIO_TEMT6000       36
+
 #define SHUNT_TO_AMP_USB(s) (s * 0.0001f)   // ( * 2.5u / 0.025)
 #define SHUNT_TO_AMP_PORT(s) (s * 0.00025f) // (* 2.5u / 0.01)
 #define BUS_TO_V(b) (b * 0.00125f)
@@ -48,14 +51,15 @@ public:
 
 public:
     Sensor *sensor_usb_v, *sensor_usb_c;
-    Sensor *sensor_out_a_v, *sensor_out_a_c;
-    Sensor *sensor_out_b_v, *sensor_out_b_c;
+    Sensor *sensor_port_a_v, *sensor_port_a_c;
+    Sensor *sensor_port_b_v, *sensor_port_b_c;
     
     SSD1322 oled;
     Terminal terminal;
     Button sw1, sw2, sw3;
     Beeper beeper;
     INA226 ina226_port_a, ina226_port_b, ina226_usb;
+    TEMT6000 temt6000;
 
     OverviewShell shell_overview;
     DetailShell shell_detail;

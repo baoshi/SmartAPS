@@ -3,13 +3,19 @@
 
 #include <Wire.h>
 
+typedef enum 
+{
+    SAMPLE_MODE_10MS_TRIGGERED,
+    SAMPLE_MODE_300MS_CONTINUOUS
+} ina226_sample_mode_t;
 
 class INA226
 {
 public:
     INA226();
     void init(TwoWire* bus, uint8_t addr);
-    void start(uint8_t mode);
+    void reset(void);
+    void start(ina226_sample_mode_t mode);
     bool read(int16_t& shunt, int16_t& bus);
 private:
     TwoWire* _bus;

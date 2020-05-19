@@ -67,36 +67,7 @@ bool SSD1322::init(int8_t mosi, int8_t sclk, int8_t cs, int8_t dc, int8_t rst)
     pinMode(_cs, OUTPUT);
     digitalWrite(_cs, HIGH);
     pinMode(_dc, OUTPUT);
-    if (_rst != -1)
-    {
-        pinMode(_rst, OUTPUT);
-        digitalWrite(_rst, HIGH);
-        delay(1);   // Datasheet 8.9. Set wait time at least 1ms for internal VDD become stable
-        digitalWrite(_rst, LOW);
-        delay(1);   // Datasheet 8.9, RES# pin LOW for at least 100us
-        digitalWrite(_rst, HIGH);
-    }
-    // Begin initialization sequence
-    _command(0xfd); _data(0x12);    // Unlock MCU interface
-    _command(0xae);                 // Turn off display
-    _command(0xb3); _data(0x91);    // Clock divider
-    _command(0xca); _data(0x3f);    // Multiplex (64 rows)
-    _command(0xa2); _data(0x00);    // Display offset (0)
-    _command(0xa1); _data(0x00);    // Display start line (0)
-    _command(0xab); _data(0x01);    // Use internal VDD
-    _command(0xa0); _data(0x14); _data(0x11);   // Remap / Dual COM mode
-    _command(0xc7); _data(0x0f);    // Master current control
-    _command(0xc1); _data(0x7f);    // Contrast
-    _command(0xb1); _data(0xe2);    // Phase 1 2x2 DCLKS, Phase 2 14 DCLKS (default 0x74)
-    _command(0xbb); _data(0x1f);    // Phase 2 precharge voltage (0.6xVCC)
-    _command(0xb6); _data(0x08);    // 2nd precharge period 8 DLCKS
-    _command(0xb4); _data(0xa0); _data(0xfd);   // Display enhancement
-    _command(0xd1); _data(0xa2); _data(0x20);   // Display enhancement B
-    _command(0xbe); _data(0x07);    // Vcomh (0.86xVCC, default 0x04)
-    _command(0xb9);                 // Use default linear gray scale
-    _command(0xa6);                 // Normal display
-    _command(0xa9);                 // Exit partial display mode
-    _command(0xaf);                 // Display on
+    reset();
     return true;
 }
 
@@ -306,4 +277,51 @@ void SSD1322::scrollUp(int16_t lines)
     memcpy(_buf, src, (SSD1322_HEIGHT - lines) * SSD1322_BUF_BYTE_WIDTH);
     src = _buf + (SSD1322_HEIGHT - lines) * SSD1322_BUF_BYTE_WIDTH;
     memset(src, 0, lines * SSD1322_BUF_BYTE_WIDTH);
+}
+
+
+void SSD1322::reset(void)
+{
+    if (_rst != -1)
+    {
+        pinMode(_rst, OUTPUT);
+        digitalWrite(_rst, HIGH);
+        delay(1);   // Datasheet 8.9. Set wait time at least 1ms for internal VDD become stable
+        digitalWrite(_rst, LOW);
+        delay(1);   // Datasheet 8.9, RES# pin LOW for at least 100us
+        digitalWrite(_rst, HIGH);
+    }
+    // Begin initialization sequence
+    _command(0xfd); _data(0x12);    // Unlock MCU interface
+    _command(0xae);                 // Turn off display
+    _command(0xb3); _data(0x91);    // Clock divider
+    _command(0xca); _data(0x3f);    // Multiplex (64 rows)
+    _command(0xa2); _data(0x00);    // Display offset (0)
+    _command(0xa1); _data(0x00);    // Display start line (0)
+    _command(0xab); _data(0x01);    // Use internal VDD
+    _command(0xa0); _data(0x14); _data(0x11);   // Remap / Dual COM mode
+    _command(0xc7); _data(0x0f);    // Master current control
+    _command(0xc1); _data(0x7f);    // Contrast
+    _command(0xb1); _data(0xe2);    // Phase 1 2x2 DCLKS, Phase 2 14 DCLKS (default 0x74)
+    _command(0xbb); _data(0x1f);    // Phase 2 precharge voltage (0.6xVCC)
+    _command(0xb6); _data(0x08);    // 2nd precharge period 8 DLCKS
+    _command(0xb4); _data(0xa0); _data(0xfd);   // Display enhancement
+    _command(0xd1); _data(0xa2); _data(0x20);   // Display enhancement B
+    _command(0xbe); _data(0x07);    // Vcomh (0.86xVCC, default 0x04)
+    _command(0xb9);                 // Use default linear gray scale
+    _command(0xa6);                 // Normal display
+    _command(0xa9);                 // Exit partial display mode
+    _command(0xaf);                 // Display on
+}
+
+
+void SSD1322::on(void)
+{
+    _command(0xaf);                 // Display on
+}
+
+
+void SSD1322::off(void)
+{
+    _command(0xae);                 // Display off
 }

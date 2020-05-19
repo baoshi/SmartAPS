@@ -49,6 +49,7 @@ void DetailShell::enter(unsigned long now)
     ESP_LOGD(TAG, "Enter Detail Shell channel %d", _channel);
     _sa->oled.clearDisplay();
     _sa->oled.setTextColor(0x0F);
+    _sa->oled.setFont(NULL);
     _sa->terminal.home();
     switch (_channel)
     {

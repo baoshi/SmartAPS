@@ -19,8 +19,8 @@ xiaomi_lywsdcgq::XiaomiLYWSDCGQ *studyroom_sensor;
 xiaomi_lywsdcgq::XiaomiLYWSDCGQ *filament_sensor;
 sntp::SNTPComponent *sntp_time;
 restart::RestartSwitch *restart_restartswitch;
-gpio::GPIOSwitch *out_a;
-gpio::GPIOSwitch *out_b;
+gpio::GPIOSwitch *out_port_a;
+gpio::GPIOSwitch *out_port_b;
 gpio::GPIOSwitch *out_usb;
 xiaomi_ble::XiaomiListener *xiaomi_ble_xiaomilistener;
 text_sensor::TextSensor *uptime;
@@ -216,8 +216,8 @@ void setup() {
   //   restore_mode: ALWAYS_OFF
   //   id: out_a
   //   interlock_wait_time: 0ms
-  out_a = new gpio::GPIOSwitch();
-  App.register_component(out_a);
+  out_port_a = new gpio::GPIOSwitch();
+  App.register_component(out_port_a);
   // switch.gpio:
   //   platform: gpio
   //   name: 12V Output B
@@ -228,8 +228,8 @@ void setup() {
   //   restore_mode: ALWAYS_OFF
   //   id: out_b
   //   interlock_wait_time: 0ms
-  out_b = new gpio::GPIOSwitch();
-  App.register_component(out_b);
+  out_port_b = new gpio::GPIOSwitch();
+  App.register_component(out_port_b);
   // switch.gpio:
   //   platform: gpio
   //   name: USB Output
@@ -266,10 +266,10 @@ void setup() {
   App.register_switch(restart_restartswitch);
   restart_restartswitch->set_name("Smart APS Restart");
   restart_restartswitch->set_icon("mdi:restart");
-  App.register_switch(out_a);
-  out_a->set_name("Port A");
-  App.register_switch(out_b);
-  out_b->set_name("Port B");
+  App.register_switch(out_port_a);
+  out_port_a->set_name("Port A");
+  App.register_switch(out_port_b);
+  out_port_b->set_name("Port B");
   App.register_switch(out_usb);
   out_usb->set_name("USB");
   custom::CustomTextSensorConstructor smartaps = custom::CustomTextSensorConstructor([=]() -> std::vector<text_sensor::TextSensor *> {
@@ -286,10 +286,10 @@ void setup() {
   esp32_ble_tracker_esp32bletracker->register_listener(xiaomi_sensor1);
   esp32_ble_tracker_esp32bletracker->register_listener(studyroom_sensor);
   esp32_ble_tracker_esp32bletracker->register_listener(filament_sensor);
-  out_a->set_pin(new GPIOPin(25, OUTPUT, false));
-  out_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
-  out_b->set_pin(new GPIOPin(32, OUTPUT, false));
-  out_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
+  out_port_a->set_pin(new GPIOPin(25, OUTPUT, false));
+  out_port_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
+  out_port_b->set_pin(new GPIOPin(32, OUTPUT, false));
+  out_port_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
   out_usb->set_pin(new GPIOPin(16, OUTPUT, false));
   out_usb->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
   xiaomi_sensor1->set_address(0x4C65A8DD6F59ULL);

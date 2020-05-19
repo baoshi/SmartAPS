@@ -46,20 +46,41 @@ void INA226::init(TwoWire* bus, uint8_t addr)
 }
 
 
-void INA226::start(uint8_t mode)
+void INA226::reset(void)
 {
-    // TODO: More modes
-     /*
-     * shunt measurement at 1.1ms
-     * bus measurement at 1.1ms
-     * 4 average
-     * continuous
-     * total 8.8ms/cycle
-     * CFG = 0100 0011 0010 0111
-     */
-    write16(0x00, 0x4327);
+    write16(0x00, 0x8000);
 }
 
+
+void INA226::start(ina226_sample_mode_t mode)
+{
+    switch (mode)
+    {
+    case SAMPLE_MODE_10MS_TRIGGERED:
+        /*
+         * shunt measurement at 1.1ms
+         * bus measurement at 1.1ms
+         * 4 average
+         * triggled
+         * total 8.8ms/cycle
+         * CFG = 0100 0011 0010 0011
+         */
+        write16(0x00, 0x4323);
+        break;
+    case SAMPLE_MODE_300MS_CONTINUOUS:
+        /*
+         * shunt measurement at 8.244ms
+         * bus measurement at 8.244ms
+         * 16 average
+         * continuous
+         * total 264ms/cycle
+         * CFG = 0100 0101 1111 1111
+         */
+        write16(0x00, 0x45FF);
+        break;
+    }
+   
+}
 
 bool INA226::read(int16_t& shunt, int16_t& bus)
 {

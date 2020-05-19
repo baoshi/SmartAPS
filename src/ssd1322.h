@@ -18,6 +18,9 @@ public:
     void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) override;
     void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) override;
     void scrollUp(int16_t lines);
+    void reset(void);
+    void on(void);
+    void off(void);
 
 private:
     void _command(uint8_t cmd);

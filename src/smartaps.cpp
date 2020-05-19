@@ -15,10 +15,10 @@ SmartAPS::SmartAPS() :
 {
     sensor_usb_v = new Sensor();
     sensor_usb_c = new Sensor();
-    sensor_out_a_v = new Sensor();
-    sensor_out_a_c = new Sensor();
-    sensor_out_b_v = new Sensor();
-    sensor_out_b_c = new Sensor();
+    sensor_port_a_v = new Sensor();
+    sensor_port_a_c = new Sensor();
+    sensor_port_b_v = new Sensor();
+    sensor_port_b_c = new Sensor();
     _uptime = 0;
     _cur_shell = NULL;
     _next_shell = NULL;
@@ -32,37 +32,43 @@ void SmartAPS::register_sensors(void)
     sensor_usb_v->set_name("USB Voltage");
     sensor_usb_v->set_unit_of_measurement("V");
     sensor_usb_v->set_accuracy_decimals(1);
+    sensor_usb_v->set_icon("mdi:alpha-v-circle");
     sensor_usb_v->set_force_update(false);
     // INA226 USB Current
     App.register_sensor(sensor_usb_c);
     sensor_usb_c->set_name("USB Current");
     sensor_usb_c->set_unit_of_measurement("A");
     sensor_usb_c->set_accuracy_decimals(1);
+    sensor_usb_c->set_icon("mdi:alpha-a-circle");
     sensor_usb_c->set_force_update(false);
     // OUT A Voltage
-    App.register_sensor(sensor_out_a_v);
-    sensor_out_a_v->set_name("Port A Voltage");
-    sensor_out_a_v->set_unit_of_measurement("V");
-    sensor_out_a_v->set_accuracy_decimals(1);
-    sensor_out_a_v->set_force_update(false);
+    App.register_sensor(sensor_port_a_v);
+    sensor_port_a_v->set_name("Port A Voltage");
+    sensor_port_a_v->set_unit_of_measurement("V");
+    sensor_port_a_v->set_accuracy_decimals(1);
+    sensor_port_a_v->set_icon("mdi:alpha-v-circle");
+    sensor_port_a_v->set_force_update(false);
     // OUT A Current
-    App.register_sensor(sensor_out_a_c);
-    sensor_out_a_c->set_name("Port A Current");
-    sensor_out_a_c->set_unit_of_measurement("A");
-    sensor_out_a_c->set_accuracy_decimals(1);
-    sensor_out_a_c->set_force_update(false);
+    App.register_sensor(sensor_port_a_c);
+    sensor_port_a_c->set_name("Port A Current");
+    sensor_port_a_c->set_unit_of_measurement("A");
+    sensor_port_a_c->set_accuracy_decimals(1);
+    sensor_port_a_c->set_icon("mdi:alpha-a-circle");
+    sensor_port_a_c->set_force_update(false);
     // OUT B Voltage
-    App.register_sensor(sensor_out_b_v);
-    sensor_out_b_v->set_name("Port B Voltage");
-    sensor_out_b_v->set_unit_of_measurement("V");
-    sensor_out_b_v->set_accuracy_decimals(1);
-    sensor_out_b_v->set_force_update(false);
+    App.register_sensor(sensor_port_b_v);
+    sensor_port_b_v->set_name("Port B Voltage");
+    sensor_port_b_v->set_unit_of_measurement("V");
+    sensor_port_b_v->set_accuracy_decimals(1);
+    sensor_port_b_v->set_icon("mdi:alpha-v-circle");
+    sensor_port_b_v->set_force_update(false);
     // OUT B Current
-    App.register_sensor(sensor_out_b_c);
-    sensor_out_b_c->set_name("Port B Current");
-    sensor_out_b_c->set_unit_of_measurement("A");
-    sensor_out_b_c->set_accuracy_decimals(1);
-    sensor_out_b_c->set_force_update(false);
+    App.register_sensor(sensor_port_b_c);
+    sensor_port_b_c->set_name("Port B Current");
+    sensor_port_b_c->set_unit_of_measurement("A");
+    sensor_port_b_c->set_accuracy_decimals(1);
+    sensor_port_b_c->set_icon("mdi:alpha-a-circle");
+    sensor_port_b_c->set_force_update(false);
 }
 
 
@@ -172,8 +178,13 @@ void SmartAPS::setup()
     // INA226
     Wire.begin(SDA_PIN, SCL_PIN, 400000);
     ina226_port_a.init(&Wire, INA226_ADDR_PORT_A);
+    ina226_port_a.reset();
     ina226_port_b.init(&Wire, INA226_ADDR_PORT_B);
+    ina226_port_b.reset();
     ina226_usb.init(&Wire, INA226_ADDR_USB);
+    ina226_usb.reset();
+    // TEMT6000
+    temt6000.init(GPIO_TEMT6000);
     // Button        
     sw1.begin(false);
     sw2.begin(false);
