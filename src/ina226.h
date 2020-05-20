@@ -17,6 +17,7 @@ public:
     void reset(void);
     void start(ina226_sample_mode_t mode);
     bool read(int16_t& shunt, int16_t& bus);
+    int16_t cache_shunt, cache_bus;
 private:
     TwoWire* _bus;
     uint8_t _addr;

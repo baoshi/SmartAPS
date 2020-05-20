@@ -15,24 +15,30 @@ extern gpio::GPIOSwitch *out_port_b;
 extern gpio::GPIOSwitch *out_usb;
 
 #define LOWLIGHT_THRESHOLD      5       // below this value is considered dark room
-#define AUTO_OFF_TIMER          30000   // turn off display 30 seconds after room go dark
+#define LIGHT_OFF_TIMER         30000   // turn off display 30 seconds after room go dark
+#define SCREENSAVER_TIMER       10000   // turn on screen saver if screen stays on for 60 seconds
 
-static const char *TAG = "ovshell";
+
+static const char *TAG = "overview";
 
 
 /*
  * Overview shell
  * Actions:
- * s2 switches on/off port A
- * s3 switches on/off port B
- * s1 switches to next shell (detailshell_usb)
+ * sw2 switches on/off port A
+ * sw3 switches on/off port B
+ * sw1 switches to next shell (detailshell_usb)
  *
  * Display every 500ms: 
  * V/A for all channels
  * Time
  * WiFi signal strength
  * 
- * Turn off display if all output is off (current low)
+ * Turn off display if low light
+ * Turn on display if
+ * - sw1/sw2/sw3 press
+ * - output toggle externally
+ * - output current change by 200mA
  * 
  * Publishes:
  * V/A of all channels every  5 second
@@ -56,17 +62,29 @@ void OverviewShell::init(void)
 void OverviewShell::enter(unsigned long now)
 {
     ESP_LOGD(TAG, "Enter Overview Shell");
-    _sa->oled.reset();  // This force display to on
+    _port_a_state = id(out_port_a).state;
+    _port_b_state = id(out_port_b).state;
+    _usb_state = id(out_usb).state;
+    _sa->oled.clearDisplay();
+    _sa->oled.display();
+    _sa->oled.reset();  // force display on
     _display_on = true;
+    _timestamp_exit_screensaver = now;   // start to count for screen saver
+    _timestamp_light_off = 0;
     _sa->sw1.begin(true);
     _sa->sw2.begin(true);
     _sa->sw3.begin(true);
     _sa->ina226_port_a.start(SAMPLE_MODE_300MS_CONTINUOUS);
     _sa->ina226_port_b.start(SAMPLE_MODE_300MS_CONTINUOUS);
     _sa->ina226_usb.start(SAMPLE_MODE_300MS_CONTINUOUS);
-    _timestamp_per_500ms = 0;
-    _timestamp_per_5000ms = 0;
-    _timestamp_light_off = 0;
+    _port_a_b = _sa->ina226_port_a.cache_bus;
+    _port_a_s = _sa->ina226_port_a.cache_shunt;
+    _port_b_b = _sa->ina226_port_b.cache_bus;
+    _port_b_s = _sa->ina226_port_b.cache_shunt;
+    _usb_b = _sa->ina226_usb.cache_bus;
+    _usb_s = _sa->ina226_usb.cache_shunt;
+    _timestamp_per_500ms = now;
+    _timestamp_per_5000ms = now;
 }
 
 
@@ -89,25 +107,43 @@ Shell* OverviewShell::loop(unsigned long now)
     {
         return (&(_sa->shell_detail));
     }
-    bool button_clicked = false;
+    bool forced_read = false;
     if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_CLICK)
     {
-        button_clicked = true;
-        // If button pressed while display is off,
+        forced_read = true;
+        // If button pressed while display is not on,
         // only turn on display, don't toggle output.
         if (_display_on)
             out_port_a->toggle();
     }
     if (BUTTON_EVENT_ID(e3) == BUTTON_EVENT_CLICK)
     {
-        button_clicked = true;
+        forced_read = true;
         if (_display_on)
             out_port_b->toggle();
     }
-    if (button_clicked)
+    // Turn on display if button pressed
+    if (forced_read)
     {
-        // Turn on display if button pressed
-        // Also reset auto-off timer
+        
+        if (!_display_on)
+        {
+            ESP_LOGI(TAG, "Turning on OLED");
+            _sa->oled.on();
+            _display_on = true;
+        }
+        // Also refresh all timer
+        _timestamp_light_off = 0;
+        _timestamp_exit_screensaver = now;
+    }
+    // Turn on display if output externally toggled
+    if ((id(out_port_a).state != _port_a_state)
+        ||
+        (id(out_port_b).state != _port_b_state)
+        ||
+        (id(out_usb).state != _usb_state))
+    {
+        forced_read = true;
         if (!_display_on)
         {
             ESP_LOGI(TAG, "Turning on OLED");
@@ -115,31 +151,102 @@ Shell* OverviewShell::loop(unsigned long now)
             _display_on = true;
         }
         _timestamp_light_off = 0;
+        _timestamp_exit_screensaver = now;
     }
-    else
+    // Measure
+    if (forced_read || (now - _timestamp_per_500ms > 500))
     {
-        // no button click, determine whether turn off display by
-        // measure ambient light
-        float lx = _sa->temt6000.read();
-        if (lx > LOWLIGHT_THRESHOLD)
+        // collect samples, compare, if changed (200mA), turn screen on
+        int16_t s, b, d;
+        _sa->ina226_port_a.read(_port_a_s, _port_a_b);
+        _sa->ina226_port_a.read(s, b);
+        d = s - _port_a_s; d = d > 0 ? d : -d;
+        _port_a_s = s; _port_a_b = b;
+        if (d > 800)
         {
+            ESP_LOGI(TAG, "Port A current changed");
             if (!_display_on)
             {
-                ESP_LOGD(TAG, "Light = %d lux", (int)lx);
+                ESP_LOGI(TAG, "Turning on OLED");
+                _sa->oled.on();
+                _display_on = true;
+                // reset the timer here instead outside
+                // so changing of current won't keep reset
+                // screensaver timer
+                _timestamp_light_off = 0;
+                _timestamp_exit_screensaver = now;
+            }
+        }
+        _sa->ina226_port_b.read(s, b);
+        d = s - _port_b_s; d = d > 0 ? d : -d;
+        _port_b_s = s; _port_b_b = b;
+        if (d > 800)
+        {
+            ESP_LOGI(TAG, "Port B current changed");
+            if (!_display_on)
+            {
                 ESP_LOGI(TAG, "Turning on OLED");
                 _sa->oled.on();
                 _display_on = true;
                 _timestamp_light_off = 0;
+                _timestamp_exit_screensaver = now;
             }
         }
-        else
+        _sa->ina226_usb.read(s, b);
+        d = s - _usb_s; d = d > 0 ? d : -d;
+        _usb_s = s; _usb_b = b;
+        if (d > 2000)
         {
-            // Low ambient light
-            if (_display_on)
+            ESP_LOGI(TAG, "USB current changed");
+            if (!_display_on)
             {
-                if (_timestamp_light_off == 0)
-                    _timestamp_light_off = now;
-                if (now - _timestamp_light_off > AUTO_OFF_TIMER)
+                ESP_LOGI(TAG, "Turning on OLED");
+                _sa->oled.on();
+                _display_on = true;
+                _timestamp_light_off = 0;
+                _timestamp_exit_screensaver = now;
+            }
+        }
+        if (_display_on)
+            draw_ui();
+        _timestamp_per_500ms = now;
+    }
+    // Ambient light measurement
+    float lx = _sa->temt6000.read();
+    if (lx > LOWLIGHT_THRESHOLD)
+    {
+        // Room is bright
+        if (!_display_on)
+        {
+            // turn on display if it is not
+            ESP_LOGD(TAG, "Light = %d lux", (int)lx);
+            ESP_LOGI(TAG, "Turning on OLED");
+            _sa->oled.on();
+            _display_on = true;
+            _timestamp_light_off = 0;  // not counting low light
+            _timestamp_exit_screensaver = now;
+        }
+        else 
+        {
+            // display is already on, count for screensaver
+            if (now - _timestamp_exit_screensaver > SCREENSAVER_TIMER)
+            {
+                return (&(_sa->shell_screensaver));
+            }
+        }
+    }
+    else
+    {
+        // Room is dark
+        if (_display_on)
+        {
+            if (_timestamp_light_off == 0)
+            {
+                _timestamp_light_off = now; // start counting low light duration
+            }
+            else
+            {
+                if (now - _timestamp_light_off > LIGHT_OFF_TIMER)
                 {
                     ESP_LOGD(TAG, "Light = %d lux", (int)lx);
                     ESP_LOGI(TAG, "Turning off OLED");
@@ -148,16 +255,6 @@ Shell* OverviewShell::loop(unsigned long now)
                 }
             }
         }
-    }
-    // Update UI if button pressed or 2fps due
-    if (button_clicked || (now - _timestamp_per_500ms > 500))
-    {
-        _sa->ina226_port_a.read(_port_a_s, _port_a_b);
-        _sa->ina226_port_b.read(_port_b_s, _port_b_b);
-        _sa->ina226_usb.read(_usb_s, _usb_b);
-        if (_display_on)
-            draw_ui();
-        _timestamp_per_500ms = now;
     }
     // Publish reading every 5 seconds
     if (now - _timestamp_per_5000ms > 5000)
@@ -180,6 +277,7 @@ Shell* OverviewShell::loop(unsigned long now)
         _sa->sensor_port_b_c->publish_state(c);
         _timestamp_per_5000ms = now;
     }
+
     _sa->beeper.loop();
     return this;
 }
@@ -188,7 +286,7 @@ Shell* OverviewShell::loop(unsigned long now)
 void OverviewShell::draw_ui(void)
 {
     const int buf_len = 64;
-    char buf[buf_len - 1];
+    char buf[buf_len + 1];
     int16_t  x1, y1;
     uint16_t w, h;
     float v, c;
@@ -332,4 +430,88 @@ void OverviewShell::draw_ui(void)
     _sa->oled.print(buf);
     // Display
     _sa->oled.display();
+}
+
+
+
+void OverviewShell::draw_screensaver(unsigned long now, bool startup)
+{
+    static int saver_frame = 0;   // 0 - Initialize, 1-100 -- Bounce
+    static int saver_item = 0;    // 0 - USB, 1 - PortA, 2 - Port B
+    static unsigned long saver_ts = now;
+    const int str_len = 64;
+    static char saver_str[str_len - 1];
+    static int saver_x = 128, saver_y = 64, saver_vx, saver_vy;
+    static uint16_t saver_w, saver_h;
+    int16_t  x1, y1;
+    float v, c;
+    if (startup)
+    {
+        // About to enter screen saver, just reset values
+        saver_frame = 0;
+        saver_item = 0;
+        saver_ts = now;
+        return;
+    }
+    if (now - saver_ts > 40)  // about 25fps
+    {
+        if (saver_frame == 0)
+        {
+            switch (saver_item)
+            {
+            case 0:
+                _sa->ina226_usb.read(_usb_s, _usb_b);
+                v = _usb_b * 0.00125f;  // 1.25mV/lsb
+                c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
+                if (c < 0) c = 0.0f;
+                snprintf(saver_str, str_len, "U:%.1fV %.1fA", v, c);
+                break;
+            case 1:
+                _sa->ina226_port_a.read(_port_a_s, _port_a_b);
+                v = _port_a_b * 0.00125f;   // 1.25mV/lsb
+                c = _port_a_s / 4000.0f;    // ( * 2.5u / 0.01 )
+                if (c < 0) c = 0.0f;
+                snprintf(saver_str, str_len, "A:%.1fV %.1fA", v, c);
+                break;
+            case 2:
+                _sa->ina226_port_b.read(_port_b_s, _port_b_b);
+                v = _port_b_b * 0.00125f;   // 1.25mV/lsb
+                c = _port_b_s / 4000.0f;    // ( * 2.5u / 0.01 )
+                if (c < 0) c = 0.0f;
+                snprintf(saver_str, str_len, "B:%.1fV %.1fA", v, c);
+                break;
+            }
+            _sa->oled.setFont(&Dotmatrix_7);
+            //_sa->oled.setTextSize(2);
+            _sa->oled.setTextColor(0x0F);
+            _sa->oled.getTextBounds(saver_str, 0, 0, &x1, &y1, &saver_w, &saver_h);
+            do { saver_vx = random(-3, 4); } while (saver_vx == 0);
+            do { saver_vy = random(-2, 3); } while (saver_vy == 0);
+            ++saver_frame;
+        }
+        saver_x = saver_x + saver_vx; saver_y = saver_y + saver_vy;
+        if ((saver_x < 0) || (saver_x >= _sa->oled.width() - saver_w))
+        {
+            saver_vx = -saver_vx;
+            saver_x = saver_x + saver_vx;
+        }
+        if ((saver_y < saver_h ) || (saver_y >= _sa->oled.height()))
+        {
+            saver_vy = -saver_vy;
+            saver_y = saver_y + saver_vy;
+        }
+        _sa->oled.clearDisplay();
+        _sa->oled.setCursor(saver_x, saver_y);
+        _sa->oled.print(saver_str);
+        _sa->oled.display();
+        ++saver_frame;
+        if (saver_frame > 200)
+        {
+            saver_frame = 0;
+            ++saver_item;
+            if (saver_item > 2)
+                saver_item = 0;
+        }
+        saver_ts= now;
+    }
 }

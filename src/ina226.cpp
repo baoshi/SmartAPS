@@ -41,6 +41,8 @@ void INA226::write16(uint8_t reg, uint16_t val)
 
 void INA226::init(TwoWire* bus, uint8_t addr)
 {
+    cache_shunt = 0;
+    cache_bus = 0;
     _bus = bus;
     _addr = addr;
 }
@@ -87,6 +89,11 @@ bool INA226::read(int16_t& shunt, int16_t& bus)
     bool ret;
     ret = read16(0x01, shunt);
     ret &= read16(0x02, bus);
+    if (ret)
+    {
+        cache_shunt = shunt;
+        cache_bus = bus;
+    }
     return ret;
 }
 

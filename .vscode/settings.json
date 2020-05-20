@@ -4,6 +4,9 @@
         "chrono": "cpp",
         "cstdio": "cpp",
         "list": "cpp",
-        "*.tcc": "cpp"
-    }
+        "*.tcc": "cpp",
+        "sstream": "cpp",
+        "regex": "cpp"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
 }

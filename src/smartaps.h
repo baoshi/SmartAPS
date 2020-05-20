@@ -8,8 +8,10 @@
 #include "button.h"
 #include "beeper.h"
 #include "ina226.h"
+#include "temt6000.h"
 #include "shell.h"
 #include "shell_overview.h"
+#include "shell_screensaver.h"
 #include "shell_detail.h"
 
 
@@ -61,6 +63,7 @@ public:
     TEMT6000 temt6000;
 
     OverviewShell shell_overview;
+    ScreenSaverShell shell_screensaver;
     DetailShell shell_detail;
 
 private:    // TextSensor related

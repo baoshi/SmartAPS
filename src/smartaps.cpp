@@ -11,6 +11,7 @@ static const char *TAG = "smartaps";
 
 SmartAPS::SmartAPS() :
     shell_overview(this),
+    shell_screensaver(this),
     shell_detail(this)
 {
     sensor_usb_v = new Sensor();
