@@ -83,8 +83,8 @@ void OverviewShell::enter(unsigned long now)
     _port_b_s = _sa->ina226_port_b.cache_shunt;
     _usb_b = _sa->ina226_usb.cache_bus;
     _usb_s = _sa->ina226_usb.cache_shunt;
-    _timestamp_per_500ms = now;
-    _timestamp_per_5000ms = now;
+    _timestamp_per_500ms = 0;    // The 500ms task will be called immediately when enter loop
+    _timestamp_per_5000ms = now; // The 5000ms task will be called after 5000ms
 }
 
 
