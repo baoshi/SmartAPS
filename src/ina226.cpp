@@ -69,6 +69,17 @@ void INA226::start(ina226_sample_mode_t mode)
          */
         write16(0x00, 0x4323);
         break;
+    case SAMPLE_MODE_10MS_CONTINUOUS:
+        /*
+         * shunt measurement at 1.1ms
+         * bus measurement at 1.1ms
+         * 4 average
+         * continuous
+         * total 8.8ms/cycle
+         * CFG = 0100 0011 0010 0111
+         */
+        write16(0x00, 0x4327);
+        break;
     case SAMPLE_MODE_300MS_CONTINUOUS:
         /*
          * shunt measurement at 8.244ms

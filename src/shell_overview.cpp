@@ -154,7 +154,6 @@ Shell* OverviewShell::loop(unsigned long now)
     {
         // collect samples, compare, if changed (200mA), turn screen on
         int16_t s, b, d;
-        _sa->ina226_port_a.read(_port_a_s, _port_a_b);
         _sa->ina226_port_a.read(s, b);
         d = s - _port_a_s; d = d > 0 ? d : -d;
         _port_a_s = s; _port_a_b = b;

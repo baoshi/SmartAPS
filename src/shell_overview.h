@@ -12,7 +12,7 @@ public:
     void init(void) override;
     void enter(unsigned long now) override;
     void leave(unsigned long now) override;
-    Shell* loop(unsigned long now);
+    Shell* loop(unsigned long now) override;
 
 private:
     unsigned long _timestamp_per_500ms, _timestamp_per_5000ms;

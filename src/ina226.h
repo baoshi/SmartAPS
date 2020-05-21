@@ -6,6 +6,7 @@
 typedef enum 
 {
     SAMPLE_MODE_10MS_TRIGGERED,
+    SAMPLE_MODE_10MS_CONTINUOUS,
     SAMPLE_MODE_300MS_CONTINUOUS
 } ina226_sample_mode_t;
 
