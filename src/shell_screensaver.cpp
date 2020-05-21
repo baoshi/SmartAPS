@@ -253,12 +253,14 @@ void ScreenSaverShell::_draw_ui(void)
     if ((_x < 0) || (_x >= _sa->oled.width() - _w))
     {
         _vx = -_vx;
-        _x += _vx;
+        while ((_x < 0) || (_x >= _sa->oled.width() - _w))
+            _x += _vx;
     }
     if ((_y < _h ) || (_y >= _sa->oled.height()))
     {
         _vy = -_vy;
-        _y += _vy;
+        while ((_y < _h ) || (_y >= _sa->oled.height()))
+            _y += _vy;
     }
     _sa->oled.clearDisplay();
     _sa->oled.setCursor(_x, _y);

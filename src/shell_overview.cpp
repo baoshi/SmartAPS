@@ -107,10 +107,10 @@ Shell* OverviewShell::loop(unsigned long now)
     {
         return (&(_sa->shell_detail));
     }
-    bool forced_read = false;
+    bool switch_changed = false;
     if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_CLICK)
     {
-        forced_read = true;
+        switch_changed = true;
         // If button pressed while display is not on,
         // only turn on display, don't toggle output.
         if (_display_on)
@@ -118,32 +118,28 @@ Shell* OverviewShell::loop(unsigned long now)
     }
     if (BUTTON_EVENT_ID(e3) == BUTTON_EVENT_CLICK)
     {
-        forced_read = true;
+        switch_changed = true;
         if (_display_on)
             out_port_b->toggle();
     }
-    // Turn on display if button pressed
-    if (forced_read)
+    bool port_changed = false;
+    if (id(out_port_a).state != _port_a_state)
     {
-        
-        if (!_display_on)
-        {
-            ESP_LOGI(TAG, "Turning on OLED");
-            _sa->oled.on();
-            _display_on = true;
-        }
-        // Also refresh all timer
-        _timestamp_light_off = 0;
-        _timestamp_exit_screensaver = now;
+        port_changed = true;
+        _port_a_state = !_port_a_state;
     }
-    // Turn on display if output externally toggled
-    if ((id(out_port_a).state != _port_a_state)
-        ||
-        (id(out_port_b).state != _port_b_state)
-        ||
-        (id(out_usb).state != _usb_state))
+    if (id(out_port_b).state != _port_b_state)
     {
-        forced_read = true;
+        port_changed = true;
+        _port_b_state = !_port_b_state;
+    }
+    if (id(out_usb).state != _usb_state)
+    {
+        port_changed = true;
+        _usb_state = !_usb_state;
+    }
+    if (switch_changed || port_changed)
+    {
         if (!_display_on)
         {
             ESP_LOGI(TAG, "Turning on OLED");
@@ -154,7 +150,7 @@ Shell* OverviewShell::loop(unsigned long now)
         _timestamp_exit_screensaver = now;
     }
     // Measure
-    if (forced_read || (now - _timestamp_per_500ms > 500))
+    if (switch_changed || port_changed || (now - _timestamp_per_500ms > 500))
     {
         // collect samples, compare, if changed (200mA), turn screen on
         int16_t s, b, d;
