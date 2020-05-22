@@ -24,3 +24,6 @@ _autosave-*
 
 # Gerber
 gerber/
+
+#BOM
+bom/
