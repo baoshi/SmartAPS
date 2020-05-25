@@ -2,6 +2,7 @@
 #define SHELL_DETAIL_H
 
 #include "shell.h"
+#include "ringbuf.h"
 
 typedef enum 
 {
@@ -36,6 +37,9 @@ private:
     int16_t _port_b_s, _port_b_b;
     int16_t _usb_s, _usb_b;
     float _ah, _wh;
+    static const int _waveform_length = 200;
+    RingBuffer<int16_t> _waveform_s;
+    RingBuffer<int16_t> _waveform_b;
     void start_sampling(void);
     void stop_sampling(void);
     void draw_ui();

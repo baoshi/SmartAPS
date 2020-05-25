@@ -1,5 +1,6 @@
 #include "esphome.h"
 #include "smartaps.h"
+#include "font_dotmatrix_7.h"
 #include "shell_detail.h"
 
 using namespace esphome;
@@ -195,7 +196,10 @@ void IRAM_ATTR on_sampling_timer()
 }
 
 
-DetailShell::DetailShell(SmartAPS* sa) : Shell(sa)
+DetailShell::DetailShell(SmartAPS* sa) :
+    Shell(sa),
+    _waveform_s(_waveform_length),
+    _waveform_b(_waveform_length)
 {
 }
 
@@ -215,10 +219,6 @@ void DetailShell::enter(unsigned long now)
 {
     ESP_LOGD(TAG, "Enter Detail Shell channel %d", _channel);
     _sa->oled.reset();  // This force display to on
-    _sa->oled.clearDisplay();
-    _sa->oled.setFont(NULL);
-    _sa->oled.setTextColor(0x0F);
-    _sa->terminal.home();
     switch (_channel)
     {
     case CHANNEL_USB:
@@ -247,6 +247,8 @@ void DetailShell::enter(unsigned long now)
     _usb_b = _sa->ina226_usb.cache_bus;
     _usb_s = _sa->ina226_usb.cache_shunt;
     _wh = 0; _ah = 0;
+    _waveform_s.reset();
+    _waveform_b.reset();
     _fps = FPS_100;
     sampling_timer = timerBegin(0, 80, true);    // 1us timer, count up
     timerAttachInterrupt(sampling_timer, on_sampling_timer, true);
@@ -333,15 +335,20 @@ Shell* DetailShell::loop(unsigned long now)
         }
     }
     // Process buffer
-    switch (_channel)
+    bool has_new_sample = (sample_count > 0);
+    portENTER_CRITICAL(&sample_buffer_mux);
+    for (int i = 0; i < sample_count; ++i)
     {
-    case CHANNEL_USB:
-        portENTER_CRITICAL(&sample_buffer_mux);
-        for (int i = 0; i < sample_count; ++i)
+        int16_t s = sample_buffer_s[i];
+        int16_t b = sample_buffer_b[i];
+        float c, v;
+        switch (_channel)
         {
-            float c = sample_buffer_s[i] / 10000.0f;    // ( * 2.5u / 0.025 )
+        case CHANNEL_USB:
+            // accumulate WH, AH
+            c = sample_buffer_s[i] / 10000.0f;    // ( * 2.5u / 0.025 )
             if (c < 0.0f) c = 0.0f;
-            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
             if (v < 0.0f) v = 0.0f;
             switch (_fps)
             {
@@ -358,18 +365,12 @@ Shell* DetailShell::loop(unsigned long now)
                 _wh += (c * v) / 3600.0f;
                 break;
             }
-        }
-        sample_count = 0;
-        portEXIT_CRITICAL(&sample_buffer_mux);
-        _sa->terminal.printf("U: %.2fWH, %.3fAH\n", _wh, _ah);
-        break; 
-    case CHANNEL_PORT_A:
-        portENTER_CRITICAL(&sample_buffer_mux);
-        for (int i = 0; i < sample_count; ++i)
-        {
-            float c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
+            break;
+        case CHANNEL_PORT_A:
+        case CHANNEL_PORT_B:
+            c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
             if (c < 0.0f) c = 0.0f;
-            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
             if (v < 0.0f) v = 0.0f;
             switch (_fps)
             {
@@ -386,42 +387,17 @@ Shell* DetailShell::loop(unsigned long now)
                 _wh += (c * v) / 3600.0f;
                 break;
             }
+            break;
         }
-        sample_count = 0;
-        portEXIT_CRITICAL(&sample_buffer_mux);
-        _sa->terminal.printf("A: %.2fWH, %.3fAH\n", _wh, _ah);
-        break;
-    case CHANNEL_PORT_B:
-        portENTER_CRITICAL(&sample_buffer_mux);
-        for (int i = 0; i < sample_count; ++i)
-        {
-            float c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
-            if (c < 0.0f) c = 0.0f;
-            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
-            if (v < 0.0f) v = 0.0f;
-            switch (_fps)
-            {
-            case FPS_100:
-                _ah += c / 360000.0f;
-                _wh += (c * v) / 360000.0f;
-                break;
-            case FPS_10:
-                _ah += c / 36000.0f;
-                _wh += (c * v) / 36000.0f;
-                break;
-            case FPS_1:
-                _ah += c / 3600.0f;
-                _wh += (c * v) / 3600.0f;
-                break;
-            }
-        }
-        sample_count = 0;
-        portEXIT_CRITICAL(&sample_buffer_mux);
-        _sa->terminal.printf("B: %.2fWH, %.3fAH\n", _wh, _ah);
-        break;
+        // insert data into waveform buffer
+        _waveform_s.put(s);
+        _waveform_b.put(b);
     }
-    _sa->oled.display();
-     // Publish reading every 5 seconds
+    sample_count = 0;
+    portEXIT_CRITICAL(&sample_buffer_mux);
+    if (has_new_sample)
+        draw_ui();
+    // Publish reading every 5 seconds
     if (now - _timestamp_per_5000ms > 5000)
     {
         float v, c;
@@ -464,8 +440,54 @@ void DetailShell::stop_sampling(void)
     }
 }
 
+#define WAVEFORM_TOP    1
+#define WAVEFORM_BOTTOM 50
+#define WAVEFORM_LEFT   55
+#define WAVEFORM_RIGHT  254
 
 void DetailShell::draw_ui()
 {
-
+    int16_t max_s, max_b;
+    int16_t min_s, min_b;
+    int16_t s, b;
+    max_s = max_b = INT16_MIN;
+    min_s = min_b = INT16_MAX;
+    _sa->oled.clearDisplay();
+    _sa->oled.drawRect(WAVEFORM_LEFT - 1, WAVEFORM_TOP - 1, (WAVEFORM_RIGHT - WAVEFORM_LEFT + 3), (WAVEFORM_BOTTOM - WAVEFORM_TOP + 3), 0x0F);
+    if (_waveform_s.size() > 1)
+    {
+        int i;
+        for (i = 0; i < _waveform_s.size(); ++i)
+        {
+            s = _waveform_s[i]; b = _waveform_b[i];
+            if (max_s < s) max_s = s;
+            if (min_s > s) min_s = s;
+            if (max_b < b) max_b = b;
+            if (min_b > b) min_b = b;
+        }
+        // USB, range round to 0.1A (1000lsb)
+        int low_s = min_s / 1000 * 1000;
+        int high_s = (max_s + 1000) / 1000 * 1000;
+        
+        int y0 = map(_waveform_s[0], low_s, high_s, WAVEFORM_BOTTOM, WAVEFORM_TOP);
+        for (i = 1; i < _waveform_s.size(); ++i)
+        {
+            int y = map(_waveform_s[i], low_s, high_s, WAVEFORM_BOTTOM, WAVEFORM_TOP);
+            _sa->oled.drawLine(WAVEFORM_LEFT + i - 1, y0, WAVEFORM_LEFT + i, y, 0x04);
+            y0 = y;
+        }
+        _sa->oled.setFont(&Dotmatrix_7);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(WAVEFORM_LEFT + 1, 8);
+        _sa->oled.printf("%0.1fA", high_s / 10000.0f);
+        _sa->oled.setCursor(WAVEFORM_LEFT + 1, WAVEFORM_BOTTOM - 2);
+        _sa->oled.printf("%0.1fA", low_s / 10000.0f);
+        _sa->oled.setCursor(0, 63);
+        _sa->oled.printf("(%d-%d) (%d-%d)", min_s, max_s, low_s, high_s);
+    }
+    //_sa->terminal.home();
+    //_sa->terminal.printf("%.4f/%.4f\n", _wh, _ah);
+    //_sa->terminal.printf("%.3f - %.3f (%.3f - %.3f)\n", min_s / 10000.0f, max_s / 10000.0f, low_s / 10000.0f, high_s / 10000.0f);
+    //_sa->terminal.printf("%.2f - %.2f (%d - %d)\n", min_b * 0.00125f, max_b * 0.00125f, min_b, max_b);
+    _sa->oled.display();
 }
