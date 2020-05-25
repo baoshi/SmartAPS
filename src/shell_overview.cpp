@@ -85,6 +85,7 @@ void OverviewShell::enter(unsigned long now)
     _usb_s = _sa->ina226_usb.cache_shunt;
     _timestamp_per_500ms = 0;    // The 500ms task will be called immediately when enter loop
     _timestamp_per_5000ms = now; // The 5000ms task will be called after 5000ms
+    _sa->beeper.beep1();
 }
 
 

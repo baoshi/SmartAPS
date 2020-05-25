@@ -4,7 +4,7 @@
 using namespace esphome;
 using namespace sequencer;
 
-#define BEEPER_GPIO 27
+#define BEEPER_GPIO 25
 #define BEEPER_LEDC_CHANNEL 0
 
 

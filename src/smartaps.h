@@ -21,7 +21,7 @@ using namespace esphome::text_sensor;
 
 
 
-#define GPIO_OUT_A          25
+#define GPIO_OUT_A          26
 #define GPIO_OUT_B          32
 #define GPIO_OUT_USB        16
 

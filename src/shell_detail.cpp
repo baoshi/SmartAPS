@@ -30,8 +30,8 @@ static const char *TAG = "dtshell";
 #define SAMPLE_BIT      0x01
 #define STOP_BIT        0x02
 
-static TaskHandle_t sampling_task_handle;
-hw_timer_t *sampling_timer;
+static TaskHandle_t sampling_task_handle = NULL;
+hw_timer_t *sampling_timer = NULL;
 
 portMUX_TYPE sample_buffer_mux = portMUX_INITIALIZER_UNLOCKED;
 const static int sample_buffer_length = 64;
@@ -177,6 +177,7 @@ void sampling_fn(void * param)
     }  // for (;;)
     ESP_LOGI(TAG, "Sampling task end");
     vTaskDelete(NULL);
+    sampling_task_handle = NULL;
 }
 
 
@@ -207,7 +208,6 @@ DetailShell::~DetailShell()
 void DetailShell::init(void)
 {
     _channel = CHANNEL_USB;
-    _fps = FPS_1;
 }
 
 
@@ -246,24 +246,21 @@ void DetailShell::enter(unsigned long now)
     _port_b_s = _sa->ina226_port_b.cache_shunt;
     _usb_b = _sa->ina226_usb.cache_bus;
     _usb_s = _sa->ina226_usb.cache_shunt;
+    _wh = 0; _ah = 0;
+    _fps = FPS_100;
     sampling_timer = timerBegin(0, 80, true);    // 1us timer, count up
     timerAttachInterrupt(sampling_timer, on_sampling_timer, true);
-    xTaskCreatePinnedToCore(sampling_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, &sampling_task_handle, CONFIG_ARDUINO_RUNNING_CORE);
     timerAlarmWrite(sampling_timer, 10000, true);    // 10ms
-    timerAlarmEnable(sampling_timer);
     _timestamp_per_5000ms = now;
+    start_sampling();
 }
 
 
 void DetailShell::leave(unsigned long now)
 {
-    timerAlarmDisable(sampling_timer);
-    if (sampling_task_handle != NULL)
-    {
-        xTaskNotify(sampling_task_handle, STOP_BIT, eSetBits);
-        delay(20);  // TODO: Better way to wait task to join?
-        sampling_task_handle = NULL;
-    }
+    stop_sampling();
+    timerEnd(sampling_timer);
+    sampling_timer = NULL;
     _sa->ina226_port_a.reset();
     _sa->ina226_port_b.reset();
     _sa->ina226_usb.reset();
@@ -301,6 +298,7 @@ Shell* DetailShell::loop(unsigned long now)
     if (BUTTON_EVENT_ID(e3) == BUTTON_EVENT_CLICK)
     {
         // sw3 click, cycle FPS
+        stop_sampling();
         switch (_fps)
         {
         case FPS_100:
@@ -313,8 +311,7 @@ Shell* DetailShell::loop(unsigned long now)
             _fps = FPS_100;
             break;
         }
-        leave(now);
-        enter(now); // Refreshs UI
+        start_sampling();
     }
     if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_CLICK)
     {
@@ -342,35 +339,86 @@ Shell* DetailShell::loop(unsigned long now)
         portENTER_CRITICAL(&sample_buffer_mux);
         for (int i = 0; i < sample_count; ++i)
         {
-            int16_t s = sample_buffer_s[i];
-            int16_t b = sample_buffer_b[i];
-            _sa->terminal.printf("U: %.2fV, %.3fA\n", b * 0.00125, s / 10000.0f);
+            float c = sample_buffer_s[i] / 10000.0f;    // ( * 2.5u / 0.025 )
+            if (c < 0.0f) c = 0.0f;
+            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            switch (_fps)
+            {
+            case FPS_100:
+                _ah += c / 360000.0f;
+                _wh += (c * v) / 360000.0f;
+                break;
+            case FPS_10:
+                _ah += c / 36000.0f;
+                _wh += (c * v) / 36000.0f;
+                break;
+            case FPS_1:
+                _ah += c / 3600.0f;
+                _wh += (c * v) / 3600.0f;
+                break;
+            }
         }
         sample_count = 0;
         portEXIT_CRITICAL(&sample_buffer_mux);
+        _sa->terminal.printf("U: %.2fWH, %.3fAH\n", _wh, _ah);
         break; 
     case CHANNEL_PORT_A:
         portENTER_CRITICAL(&sample_buffer_mux);
         for (int i = 0; i < sample_count; ++i)
         {
-            int16_t s = sample_buffer_s[i];
-            int16_t b = sample_buffer_b[i];
-            _sa->terminal.printf("A: %.2fV, %.3fA\n", b * 0.00125, s / 10000.0f);
+            float c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            switch (_fps)
+            {
+            case FPS_100:
+                _ah += c / 360000.0f;
+                _wh += (c * v) / 360000.0f;
+                break;
+            case FPS_10:
+                _ah += c / 36000.0f;
+                _wh += (c * v) / 36000.0f;
+                break;
+            case FPS_1:
+                _ah += c / 3600.0f;
+                _wh += (c * v) / 3600.0f;
+                break;
+            }
         }
         sample_count = 0;
         portEXIT_CRITICAL(&sample_buffer_mux);
+        _sa->terminal.printf("A: %.2fWH, %.3fAH\n", _wh, _ah);
         break;
     case CHANNEL_PORT_B:
         portENTER_CRITICAL(&sample_buffer_mux);
         for (int i = 0; i < sample_count; ++i)
         {
-            int16_t s = sample_buffer_s[i];
-            int16_t b = sample_buffer_b[i];
-            _sa->terminal.printf("B: %.2fV, %.3fA\n", b * 0.00125, s / 10000.0f);
+            float c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            float v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            switch (_fps)
+            {
+            case FPS_100:
+                _ah += c / 360000.0f;
+                _wh += (c * v) / 360000.0f;
+                break;
+            case FPS_10:
+                _ah += c / 36000.0f;
+                _wh += (c * v) / 36000.0f;
+                break;
+            case FPS_1:
+                _ah += c / 3600.0f;
+                _wh += (c * v) / 3600.0f;
+                break;
+            }
         }
         sample_count = 0;
         portEXIT_CRITICAL(&sample_buffer_mux);
-        break;        
+        _sa->terminal.printf("B: %.2fWH, %.3fAH\n", _wh, _ah);
+        break;
     }
     _sa->oled.display();
      // Publish reading every 5 seconds
@@ -396,4 +444,28 @@ Shell* DetailShell::loop(unsigned long now)
     }
     _sa->beeper.loop();
     return this;
+}
+
+
+void DetailShell::start_sampling(void)
+{
+    xTaskCreatePinnedToCore(sampling_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, &sampling_task_handle, CONFIG_ARDUINO_RUNNING_CORE);
+    timerAlarmEnable(sampling_timer);
+}
+
+
+void DetailShell::stop_sampling(void)
+{
+    timerAlarmDisable(sampling_timer);
+    if (sampling_task_handle != NULL)
+    {
+        xTaskNotify(sampling_task_handle, STOP_BIT, eSetBits);
+        delay(20);  // TODO: Better way to wait task to join?
+    }
+}
+
+
+void DetailShell::draw_ui()
+{
+
 }

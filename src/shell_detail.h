@@ -35,7 +35,10 @@ private:
     int16_t _port_a_s, _port_a_b;
     int16_t _port_b_s, _port_b_b;
     int16_t _usb_s, _usb_b;
-    //void draw_ui();
+    float _ah, _wh;
+    void start_sampling(void);
+    void stop_sampling(void);
+    void draw_ui();
 friend void sampling_fn(void *);
 };
 

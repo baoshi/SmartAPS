@@ -210,7 +210,7 @@ void setup() {
   //   platform: gpio
   //   name: 12V Output A
   //   pin:
-  //     number: 25
+  //     number: 26
   //     inverted: false
   //     mode: OUTPUT
   //   restore_mode: ALWAYS_OFF
@@ -286,7 +286,7 @@ void setup() {
   esp32_ble_tracker_esp32bletracker->register_listener(xiaomi_sensor1);
   esp32_ble_tracker_esp32bletracker->register_listener(studyroom_sensor);
   esp32_ble_tracker_esp32bletracker->register_listener(filament_sensor);
-  out_port_a->set_pin(new GPIOPin(25, OUTPUT, false));
+  out_port_a->set_pin(new GPIOPin(26, OUTPUT, false));
   out_port_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
   out_port_b->set_pin(new GPIOPin(32, OUTPUT, false));
   out_port_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
