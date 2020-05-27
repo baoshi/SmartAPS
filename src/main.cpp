@@ -13,7 +13,7 @@ ota::OTAComponent *ota_otacomponent;
 api::APIServer *api_apiserver;
 using namespace sensor;
 using namespace api;
-esp32_ble_tracker::ESP32BLETracker *esp32_ble_tracker_esp32bletracker;
+esp32_ble_tracker::ESP32BLETracker *bletracker;
 xiaomi_lywsdcgq::XiaomiLYWSDCGQ *xiaomi_sensor1;
 xiaomi_lywsdcgq::XiaomiLYWSDCGQ *studyroom_sensor;
 xiaomi_lywsdcgq::XiaomiLYWSDCGQ *filament_sensor;
@@ -42,21 +42,21 @@ void setup() {
   //   board: esp32dev
   //   includes:
   //   - smartaps_files/smartaps.h
-  //   arduino_version: espressif32@1.11.0
+  //   libraries: []
   //   build_path: smartaps
   //   platformio_options: {}
-  //   libraries: []
+  //   arduino_version: espressif32@1.11.0
   App.pre_setup("smartaps", __DATE__ ", " __TIME__);
   // time:
   // switch:
   // text_sensor:
   // logger:
-  //   logs: {}
+  //   tx_buffer_size: 512
+  //   hardware_uart: UART0
+  //   baud_rate: 115200
   //   id: logger_logger
   //   level: DEBUG
-  //   baud_rate: 115200
-  //   hardware_uart: UART0
-  //   tx_buffer_size: 512
+  //   logs: {}
   logger_logger = new logger::Logger(115200, 512, logger::UART_SELECTION_UART0);
   logger_logger->pre_setup();
   App.register_component(logger_logger);
@@ -73,18 +73,18 @@ void setup() {
   //   ap:
   //     ssid: Smartaps Fallback Hotspot
   //     password: Cjy08060
-  //     id: wifi_wifiap
   //     ap_timeout: 1min
-  //   fast_connect: false
+  //     id: wifi_wifiap
   //   reboot_timeout: 15min
-  //   id: wifi_wificomponent
+  //   fast_connect: false
   //   power_save_mode: LIGHT
   //   domain: .local
+  //   id: wifi_wificomponent
   //   networks:
   //   - ssid: West Princess
   //     password: yiyangde
-  //     priority: 0.0
   //     id: wifi_wifiap_2
+  //     priority: 0.0
   //   use_address: smartaps.local
   wifi_wificomponent = new wifi::WiFiComponent();
   wifi_wificomponent->set_use_address("smartaps.local");
@@ -104,9 +104,9 @@ void setup() {
   App.register_component(wifi_wificomponent);
   // ota:
   //   safe_mode: true
-  //   id: ota_otacomponent
   //   password: ''
   //   port: 3232
+  //   id: ota_otacomponent
   ota_otacomponent = new ota::OTAComponent();
   ota_otacomponent->set_port(3232);
   ota_otacomponent->set_auth_password("");
@@ -114,9 +114,9 @@ void setup() {
   ota_otacomponent->start_safe_mode();
   // api:
   //   reboot_timeout: 15min
-  //   id: api_apiserver
   //   password: ''
   //   port: 6053
+  //   id: api_apiserver
   api_apiserver = new api::APIServer();
   App.register_component(api_apiserver);
   // sensor:
@@ -124,14 +124,14 @@ void setup() {
   api_apiserver->set_password("");
   api_apiserver->set_reboot_timeout(900000);
   // esp32_ble_tracker:
+  //   id: bletracker
   //   scan_parameters:
-  //     duration: 5min
-  //     active: true
   //     window: 30ms
   //     interval: 320ms
-  //   id: esp32_ble_tracker_esp32bletracker
-  esp32_ble_tracker_esp32bletracker = new esp32_ble_tracker::ESP32BLETracker();
-  App.register_component(esp32_ble_tracker_esp32bletracker);
+  //     active: true
+  //     duration: 5min
+  bletracker = new esp32_ble_tracker::ESP32BLETracker();
+  App.register_component(bletracker);
   // sensor.xiaomi_lywsdcgq:
   //   platform: xiaomi_lywsdcgq
   //   id: xiaomi_sensor1
@@ -140,17 +140,17 @@ void setup() {
   //     id: workshop_temperature
   //     name: Workshop Temperature
   //     accuracy_decimals: 1
+  //     force_update: false
   //     icon: mdi:thermometer
   //     unit_of_measurement: °C
-  //     force_update: false
   //   humidity:
   //     id: workshop_humidity
   //     name: Workshop Humidity
   //     accuracy_decimals: 1
+  //     force_update: false
   //     icon: mdi:water-percent
   //     unit_of_measurement: '%'
-  //     force_update: false
-  //   esp32_ble_id: esp32_ble_tracker_esp32bletracker
+  //   esp32_ble_id: bletracker
   xiaomi_sensor1 = new xiaomi_lywsdcgq::XiaomiLYWSDCGQ();
   App.register_component(xiaomi_sensor1);
   // sensor.xiaomi_lywsdcgq:
@@ -161,17 +161,17 @@ void setup() {
   //     id: studyroom_temperature
   //     name: Study Room Temperature
   //     accuracy_decimals: 1
+  //     force_update: false
   //     icon: mdi:thermometer
   //     unit_of_measurement: °C
-  //     force_update: false
   //   humidity:
   //     id: studyroom_humidity
   //     name: Study Room Humidity
   //     accuracy_decimals: 1
+  //     force_update: false
   //     icon: mdi:water-percent
   //     unit_of_measurement: '%'
-  //     force_update: false
-  //   esp32_ble_id: esp32_ble_tracker_esp32bletracker
+  //   esp32_ble_id: bletracker
   studyroom_sensor = new xiaomi_lywsdcgq::XiaomiLYWSDCGQ();
   App.register_component(studyroom_sensor);
   // sensor.xiaomi_lywsdcgq:
@@ -182,61 +182,61 @@ void setup() {
   //     id: filament_humidity
   //     name: Filament Humidity
   //     accuracy_decimals: 1
+  //     force_update: false
   //     icon: mdi:water-percent
   //     unit_of_measurement: '%'
-  //     force_update: false
-  //   esp32_ble_id: esp32_ble_tracker_esp32bletracker
+  //   esp32_ble_id: bletracker
   filament_sensor = new xiaomi_lywsdcgq::XiaomiLYWSDCGQ();
   App.register_component(filament_sensor);
   // time.sntp:
   //   platform: sntp
   //   id: sntp_time
-  //   timezone: TZ-8
   //   servers:
   //   - 0.pool.ntp.org
   //   - 1.pool.ntp.org
   //   - 2.pool.ntp.org
+  //   timezone: TZ-8
   sntp_time = new sntp::SNTPComponent();
   sntp_time->set_servers("0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org");
   App.register_component(sntp_time);
   // switch.restart:
   //   platform: restart
   //   name: Smart APS Restart
-  //   id: restart_restartswitch
   //   icon: mdi:restart
+  //   id: restart_restartswitch
   restart_restartswitch = new restart::RestartSwitch();
   App.register_component(restart_restartswitch);
   // switch.gpio:
   //   platform: gpio
-  //   name: 12V Output A
+  //   name: Port A
   //   pin:
   //     number: 26
-  //     inverted: false
   //     mode: OUTPUT
-  //   restore_mode: ALWAYS_OFF
-  //   id: out_a
+  //     inverted: false
+  //   restore_mode: RESTORE_DEFAULT_OFF
+  //   id: out_port_a
   //   interlock_wait_time: 0ms
   out_port_a = new gpio::GPIOSwitch();
   App.register_component(out_port_a);
   // switch.gpio:
   //   platform: gpio
-  //   name: 12V Output B
+  //   name: Port B
   //   pin:
   //     number: 32
-  //     inverted: false
   //     mode: OUTPUT
-  //   restore_mode: ALWAYS_OFF
-  //   id: out_b
+  //     inverted: false
+  //   restore_mode: RESTORE_DEFAULT_OFF
+  //   id: out_port_b
   //   interlock_wait_time: 0ms
   out_port_b = new gpio::GPIOSwitch();
   App.register_component(out_port_b);
   // switch.gpio:
   //   platform: gpio
-  //   name: USB Output
+  //   name: USB
   //   pin:
   //     number: 16
-  //     inverted: false
   //     mode: OUTPUT
+  //     inverted: false
   //   restore_mode: ALWAYS_ON
   //   id: out_usb
   //   interlock_wait_time: 0ms
@@ -255,13 +255,13 @@ void setup() {
   //     icon: mdi:heart-pulse
   //     name: Uptime
   // xiaomi_ble:
-  //   esp32_ble_id: esp32_ble_tracker_esp32bletracker
   //   id: xiaomi_ble_xiaomilistener
+  //   esp32_ble_id: bletracker
   xiaomi_ble_xiaomilistener = new xiaomi_ble::XiaomiListener();
-  esp32_ble_tracker_esp32bletracker->set_scan_duration(300);
-  esp32_ble_tracker_esp32bletracker->set_scan_interval(512);
-  esp32_ble_tracker_esp32bletracker->set_scan_window(48);
-  esp32_ble_tracker_esp32bletracker->set_scan_active(true);
+  bletracker->set_scan_duration(300);
+  bletracker->set_scan_interval(512);
+  bletracker->set_scan_window(48);
+  bletracker->set_scan_active(true);
   sntp_time->set_timezone("TZ-8");
   App.register_switch(restart_restartswitch);
   restart_restartswitch->set_name("Smart APS Restart");
@@ -282,14 +282,14 @@ void setup() {
   App.register_text_sensor(uptime);
   uptime->set_name("Uptime");
   uptime->set_icon("mdi:heart-pulse");
-  esp32_ble_tracker_esp32bletracker->register_listener(xiaomi_ble_xiaomilistener);
-  esp32_ble_tracker_esp32bletracker->register_listener(xiaomi_sensor1);
-  esp32_ble_tracker_esp32bletracker->register_listener(studyroom_sensor);
-  esp32_ble_tracker_esp32bletracker->register_listener(filament_sensor);
+  bletracker->register_listener(xiaomi_ble_xiaomilistener);
+  bletracker->register_listener(xiaomi_sensor1);
+  bletracker->register_listener(studyroom_sensor);
+  bletracker->register_listener(filament_sensor);
   out_port_a->set_pin(new GPIOPin(26, OUTPUT, false));
-  out_port_a->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
+  out_port_a->set_restore_mode(gpio::GPIO_SWITCH_RESTORE_DEFAULT_OFF);
   out_port_b->set_pin(new GPIOPin(32, OUTPUT, false));
-  out_port_b->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_OFF);
+  out_port_b->set_restore_mode(gpio::GPIO_SWITCH_RESTORE_DEFAULT_OFF);
   out_usb->set_pin(new GPIOPin(16, OUTPUT, false));
   out_usb->set_restore_mode(gpio::GPIO_SWITCH_ALWAYS_ON);
   xiaomi_sensor1->set_address(0x4C65A8DD6F59ULL);

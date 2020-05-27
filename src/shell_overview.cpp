@@ -2,7 +2,7 @@
 #include "esphome.h"
 #include "smartaps.h"
 #include "font_seg7_23.h"
-#include "font_symbol_7.h"
+#include "font_symbol_10.h"
 #include "font_dotmatrix_7.h"
 #include "shell_overview.h"
 
@@ -16,7 +16,7 @@ extern gpio::GPIOSwitch *out_usb;
 
 #define LOWLIGHT_THRESHOLD      5       // below this value is considered dark room
 #define LIGHT_OFF_TIMER         30000   // turn off display 30 seconds after room go dark
-#define SCREENSAVER_TIMER       10000   // turn on screen saver if screen stays on for 60 seconds
+#define SCREENSAVER_TIMER       300000  // turn on screen saver if screen stays on for 5 minutes
 
 
 static const char *TAG = "overview";
@@ -85,13 +85,11 @@ void OverviewShell::enter(unsigned long now)
     _usb_s = _sa->ina226_usb.cache_shunt;
     _timestamp_per_500ms = 0;    // The 500ms task will be called immediately when enter loop
     _timestamp_per_5000ms = now; // The 5000ms task will be called after 5000ms
-    _sa->beeper.beep1();
 }
 
 
 void OverviewShell::leave(unsigned long now)
 {
-    _sa->beeper.stop();
     _sa->ina226_port_a.reset();
     _sa->ina226_port_b.reset();
     _sa->ina226_usb.reset();
@@ -273,8 +271,6 @@ Shell* OverviewShell::loop(unsigned long now)
         _sa->sensor_port_b_c->publish_state(c);
         _timestamp_per_5000ms = now;
     }
-
-    _sa->beeper.loop();
     return this;
 }
 
@@ -292,7 +288,7 @@ void OverviewShell::draw_ui(void)
     // USB V/A
     if (id(out_usb).state)
     {
-        _sa->oled.setFont(&Symbol_7);
+        _sa->oled.setFont(&Symbol_10);
         _sa->oled.setCursor(0, 6);
         _sa->oled.setTextColor(0x0F);
         _sa->oled.print("\x81");  // USB symbol
@@ -306,7 +302,7 @@ void OverviewShell::draw_ui(void)
     }
     else
     {
-        _sa->oled.setFont(&Symbol_7);
+        _sa->oled.setFont(&Symbol_10);
         _sa->oled.setCursor(0, 6);
         _sa->oled.setTextColor(0x02);
         _sa->oled.print("\x81");  // USB symbol    
@@ -314,7 +310,7 @@ void OverviewShell::draw_ui(void)
     // WiFi Symbol
     if (id(wifi_wificomponent).is_connected())
     {
-        _sa->oled.setFont(&Symbol_7);
+        _sa->oled.setFont(&Symbol_10);
         _sa->oled.setCursor(249, 6);
         _sa->oled.setTextColor(0x02);
         _sa->oled.print("\x85");  // Four bar signal symbol
@@ -350,7 +346,7 @@ void OverviewShell::draw_ui(void)
     }
     else
     {
-        _sa->oled.setFont(&Symbol_7);
+        _sa->oled.setFont(&Symbol_10);
         _sa->oled.setCursor(249, 6);
         _sa->oled.setTextColor(0x02);
         _sa->oled.print("\x86");  // Four bar signal symbol

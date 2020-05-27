@@ -56,7 +56,6 @@ public:
     Sensor *sensor_port_b_v, *sensor_port_b_c;
     
     SSD1322 oled;
-    Terminal terminal;
     Button sw1, sw2, sw3;
     Beeper beeper;
     INA226 ina226_port_a, ina226_port_b, ina226_usb;

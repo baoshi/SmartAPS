@@ -1,5 +1,6 @@
 #include "esphome.h"
 #include "smartaps.h"
+#include "font_symbol_10.h"
 #include "font_dotmatrix_7.h"
 #include "shell_detail.h"
 
@@ -24,9 +25,10 @@ static const char *TAG = "dtshell";
  * Time
  * 
  * Publishes:
- * V/A of all channels every  5? second
+ * Not publishing (causes unstable WiFi connection)
  */
 
+#define BACK_TO_OVERVIEW_TIMER    300000UL        // 5*60*1000, 5 minutes, go back to overview shell
 
 #define SAMPLE_BIT      0x01
 #define STOP_BIT        0x02
@@ -45,7 +47,6 @@ void sampling_fn(void * param)
 {
     DetailShell* ds = reinterpret_cast<DetailShell*>(param);
     uint32_t notify;
-    int frame = 0;
     long accu_s = 0, accu_b = 0;
     int accu_count = 0;
     ESP_LOGI(TAG, "Sampling task started");
@@ -66,42 +67,12 @@ void sampling_fn(void * param)
                 {
                 case CHANNEL_USB:
                     ds->_sa->ina226_usb.read(s, b);
-                    ds->_usb_s = s;
-                    ds->_usb_b = b;
-                    // for every 5 seconds (500 samples on selected channel), we sneak in 
-                    // sampling of the two other channels
-                    if (++frame > 499)
-                    {
-                        ds->_sa->ina226_port_a.read(ds->_port_a_s, ds->_port_a_b);
-                        ds->_sa->ina226_port_b.read(ds->_port_b_s, ds->_port_b_b);
-                        frame = 0;
-                    }
                     break;
                 case CHANNEL_PORT_A:
                     ds->_sa->ina226_port_a.read(s, b);
-                    ds->_port_a_s = s;
-                    ds->_port_a_b = b;
-                    // for every 5 seconds (500 samples on selected channel), we sneak in 
-                    // sampling of the two other channels
-                    if (++frame > 499)
-                    {
-                        ds->_sa->ina226_usb.read(ds->_usb_s, ds->_usb_b);
-                        ds->_sa->ina226_port_b.read(ds->_port_b_s, ds->_port_b_b);
-                        frame = 0;
-                    }
                     break;
                 case CHANNEL_PORT_B:
                     ds->_sa->ina226_port_b.read(s, b);
-                    ds->_port_b_s = s;
-                    ds->_port_b_b = b;
-                    // for every 5 seconds (500 samples on selected channel), we sneak in 
-                    // sampling of the two other channels
-                    if (++frame > 499)
-                    {
-                        ds->_sa->ina226_usb.read(ds->_usb_s, ds->_usb_b);
-                        ds->_sa->ina226_port_a.read(ds->_port_a_s, ds->_port_a_b);
-                        frame = 0;
-                    }
                     break;
                 }
                 // accumulating samples
@@ -176,7 +147,7 @@ void sampling_fn(void * param)
             // xTaskNotify failed, shall not happen
         }
     }  // for (;;)
-    ESP_LOGI(TAG, "Sampling task end");
+    ESP_LOGI(TAG, "Sampling task ended");
     vTaskDelete(NULL);
     sampling_task_handle = NULL;
 }
@@ -223,29 +194,23 @@ void DetailShell::enter(unsigned long now)
     {
     case CHANNEL_USB:
         _channel_enabled = id(out_usb).state;
-        _sa->ina226_port_a.start(SAMPLE_MODE_300MS_CONTINUOUS);
-        _sa->ina226_port_b.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_port_a.reset();
+        _sa->ina226_port_b.reset();
         _sa->ina226_usb.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;        
     case CHANNEL_PORT_A:
         _channel_enabled = id(out_port_a).state;
-        _sa->ina226_port_b.start(SAMPLE_MODE_300MS_CONTINUOUS);
-        _sa->ina226_usb.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_port_b.reset();
+        _sa->ina226_usb.reset();
         _sa->ina226_port_a.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;
     case CHANNEL_PORT_B:
         _channel_enabled = id(out_port_b).state;
-        _sa->ina226_port_a.start(SAMPLE_MODE_300MS_CONTINUOUS);
-        _sa->ina226_usb.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_port_a.reset();
+        _sa->ina226_usb.reset();
         _sa->ina226_port_b.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;
     }
-    _port_a_b = _sa->ina226_port_a.cache_bus;
-    _port_a_s = _sa->ina226_port_a.cache_shunt;
-    _port_b_b = _sa->ina226_port_b.cache_bus;
-    _port_b_s = _sa->ina226_port_b.cache_shunt;
-    _usb_b = _sa->ina226_usb.cache_bus;
-    _usb_s = _sa->ina226_usb.cache_shunt;
     _wh = 0; _ah = 0;
     _waveform_s.reset();
     _waveform_b.reset();
@@ -253,7 +218,8 @@ void DetailShell::enter(unsigned long now)
     sampling_timer = timerBegin(0, 80, true);    // 1us timer, count up
     timerAttachInterrupt(sampling_timer, on_sampling_timer, true);
     timerAlarmWrite(sampling_timer, 10000, true);    // 10ms
-    _timestamp_per_5000ms = now;
+    _timestamp_back_to_overview = now;
+    _count = 0; _max_count = 0;
     start_sampling();
 }
 
@@ -266,13 +232,13 @@ void DetailShell::leave(unsigned long now)
     _sa->ina226_port_a.reset();
     _sa->ina226_port_b.reset();
     _sa->ina226_usb.reset();
-    _sa->beeper.stop();
     ESP_LOGD(TAG, "Leave Detail Shell channel %d", _channel);
 }
 
 
 Shell* DetailShell::loop(unsigned long now)
 {
+    bool redraw = false;
     uint32_t e1 = _sa->sw1.update(now);
     uint32_t e2 = _sa->sw2.update(now);
     uint32_t e3 = _sa->sw3.update(now);
@@ -314,6 +280,8 @@ Shell* DetailShell::loop(unsigned long now)
             break;
         }
         start_sampling();
+        redraw = true;
+        _timestamp_back_to_overview = now;
     }
     if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_CLICK)
     {
@@ -333,9 +301,23 @@ Shell* DetailShell::loop(unsigned long now)
             _channel_enabled = id(out_port_b).state;
             break;
         }
+        redraw = true;
+        _timestamp_back_to_overview = now;
     }
+    if (now - _timestamp_back_to_overview > BACK_TO_OVERVIEW_TIMER)
+    {
+        // Go back to overview shell
+        _channel = CHANNEL_USB;   // next time start from USB
+        return (&(_sa->shell_overview));
+    }
+
     // Process buffer
-    bool has_new_sample = (sample_count > 0);
+     if (sample_count > 0)
+     {
+        redraw = true;
+        _count = sample_count;
+        if (_count > _max_count) _max_count = _count;
+     }
     portENTER_CRITICAL(&sample_buffer_mux);
     for (int i = 0; i < sample_count; ++i)
     {
@@ -395,37 +377,16 @@ Shell* DetailShell::loop(unsigned long now)
     }
     sample_count = 0;
     portEXIT_CRITICAL(&sample_buffer_mux);
-    if (has_new_sample)
+    if (redraw)
         draw_ui();
-    // Publish reading every 5 seconds
-    if (now - _timestamp_per_5000ms > 5000)
-    {
-        float v, c;
-        // USB data
-        v = _usb_b * 0.00125f;  // 1.25mV/lsb
-        c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
-        _sa->sensor_usb_v->publish_state(v);
-        _sa->sensor_usb_c->publish_state(c);
-        // Port A data
-        v = _port_a_b * 0.00125f;  // 1.25mV/lsb
-        c = _port_a_s / 4000.0f;  // ( * 2.5u / 0.01 )
-        _sa->sensor_port_a_v->publish_state(v);
-        _sa->sensor_port_a_c->publish_state(c);
-        // Port B data
-        v = _port_b_b * 0.00125f;  // 1.25mV/lsb
-        c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
-        _sa->sensor_port_b_v->publish_state(v);
-        _sa->sensor_port_b_c->publish_state(c);
-        _timestamp_per_5000ms = now;
-    }
-    _sa->beeper.loop();
     return this;
 }
 
 
 void DetailShell::start_sampling(void)
 {
-    xTaskCreatePinnedToCore(sampling_fn, "SAMPLING", 2000, this, uxTaskPriorityGet(NULL) + 1, &sampling_task_handle, CONFIG_ARDUINO_RUNNING_CORE);
+    xTaskCreatePinnedToCore(sampling_fn, "SAMPLING", 4096, this, uxTaskPriorityGet(NULL) + 1, &sampling_task_handle, CONFIG_ARDUINO_RUNNING_CORE);
+    //_highfreq.start();
     timerAlarmEnable(sampling_timer);
 }
 
@@ -436,58 +397,172 @@ void DetailShell::stop_sampling(void)
     if (sampling_task_handle != NULL)
     {
         xTaskNotify(sampling_task_handle, STOP_BIT, eSetBits);
+        //_highfreq.stop();
         delay(20);  // TODO: Better way to wait task to join?
     }
 }
 
-#define WAVEFORM_TOP    1
-#define WAVEFORM_BOTTOM 50
-#define WAVEFORM_LEFT   55
-#define WAVEFORM_RIGHT  254
 
 void DetailShell::draw_ui()
 {
+    const int buf_len = 16;
+    char buf[buf_len + 1];
+    int16_t x1, y1;
+    uint16_t w, h;
+    int16_t high_s = 0, low_s = 0;
+    float high_c = 0.0f, low_c = 0.0f;
+    int16_t s = 0, b = 0;
+    float c = 0.0f, v = 0.0f;
+    
+    // Nothing to draw if not enough data
+    if (_waveform_s.size() < 2)
+        return;
+    // find limits
     int16_t max_s, max_b;
     int16_t min_s, min_b;
-    int16_t s, b;
     max_s = max_b = INT16_MIN;
     min_s = min_b = INT16_MAX;
-    _sa->oled.clearDisplay();
-    _sa->oled.drawRect(WAVEFORM_LEFT - 1, WAVEFORM_TOP - 1, (WAVEFORM_RIGHT - WAVEFORM_LEFT + 3), (WAVEFORM_BOTTOM - WAVEFORM_TOP + 3), 0x0F);
-    if (_waveform_s.size() > 1)
+    for (int i = 0; i < _waveform_s.size(); ++i)
     {
-        int i;
-        for (i = 0; i < _waveform_s.size(); ++i)
-        {
-            s = _waveform_s[i]; b = _waveform_b[i];
-            if (max_s < s) max_s = s;
-            if (min_s > s) min_s = s;
-            if (max_b < b) max_b = b;
-            if (min_b > b) min_b = b;
-        }
-        // USB, range round to 0.1A (1000lsb)
-        int low_s = min_s / 1000 * 1000;
-        int high_s = (max_s + 1000) / 1000 * 1000;
-        
-        int y0 = map(_waveform_s[0], low_s, high_s, WAVEFORM_BOTTOM, WAVEFORM_TOP);
-        for (i = 1; i < _waveform_s.size(); ++i)
-        {
-            int y = map(_waveform_s[i], low_s, high_s, WAVEFORM_BOTTOM, WAVEFORM_TOP);
-            _sa->oled.drawLine(WAVEFORM_LEFT + i - 1, y0, WAVEFORM_LEFT + i, y, 0x04);
-            y0 = y;
-        }
+        s = _waveform_s[i]; b = _waveform_b[i];
+        if (max_s < s) max_s = s;
+        if (min_s > s) min_s = s;
+        if (max_b < b) max_b = b;
+        if (min_b > b) min_b = b;
+    }
+    // s and b now holding latest sample value
+    // Start to draw    
+    _sa->oled.clearDisplay();
+    // Bottom banner
+    _sa->oled.fillRect(0, 54, 256, 10, 0x02);
+    _sa->oled.setFont(&Dotmatrix_7);
+    _sa->oled.setTextColor(0x0F);
+    _sa->oled.setCursor(140, 61);
+    // SPS
+    switch (_fps)
+    {
+    case FPS_100:
+        _sa->oled.print("Sampling: 100 SPS");
+        break;
+    case FPS_10:
+        _sa->oled.print("Sampling: 10 SPS");
+        break;
+    case FPS_1:
+        _sa->oled.print("Sampling: 1 SPS");
+        break;
+    }
+
+    switch (_channel)
+    {
+    case CHANNEL_USB:
+        _sa->oled.setFont(&Symbol_10);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(0, 10);
+        _sa->oled.print("\x87");    // TYPE C
         _sa->oled.setFont(&Dotmatrix_7);
         _sa->oled.setTextColor(0x0F);
-        _sa->oled.setCursor(WAVEFORM_LEFT + 1, 8);
-        _sa->oled.printf("%0.1fA", high_s / 10000.0f);
-        _sa->oled.setCursor(WAVEFORM_LEFT + 1, WAVEFORM_BOTTOM - 2);
-        _sa->oled.printf("%0.1fA", low_s / 10000.0f);
-        _sa->oled.setCursor(0, 63);
-        _sa->oled.printf("(%d-%d) (%d-%d)", min_s, max_s, low_s, high_s);
+        _sa->oled.setCursor(6, 61);
+        if (id(out_usb).state)
+        {
+            _sa->oled.print("Output: ON");
+        }
+        else
+        {
+            _sa->oled.print("Output: OFF");
+        }
+        c = s / 10000.0f;
+        v = b * 0.00125f;
+        // USB, range round to 0.1A (1000lsb)
+        low_s = min_s / 1000 * 1000;
+        high_s = (max_s + 1000) / 1000 * 1000;
+        low_c = low_s / 10000.0f;
+        high_c = high_s / 10000.0f;
+        break;
+    case CHANNEL_PORT_A:
+        _sa->oled.setFont(&Symbol_10);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(0, 10);
+        _sa->oled.print("\x88");    // PORT A
+        _sa->oled.setFont(&Dotmatrix_7);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(6, 61);
+        if (id(out_port_a).state)
+        {
+            _sa->oled.print("Output: ON");
+        }
+        else
+        {
+            _sa->oled.print("Output: OFF");
+        }
+        c = s / 4000.0f;
+        v = b * 0.00125f;
+        // Port A, range round to 0.1A (400lsb)
+        low_s = min_s / 400 * 400;
+        high_s = (max_s + 400) / 400 * 400;
+        low_c = low_s / 4000.0f;
+        high_c = high_s / 4000.0f;
+        break;
+    case CHANNEL_PORT_B:
+        _sa->oled.setFont(&Symbol_10);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(0, 10);
+        _sa->oled.print("\x89");    // PORT B
+        _sa->oled.setFont(&Dotmatrix_7);
+        _sa->oled.setTextColor(0x0F);
+        _sa->oled.setCursor(6, 61);
+        if (id(out_port_a).state)
+        {
+            _sa->oled.print("Output: ON");
+        }
+        else
+        {
+            _sa->oled.print("Output: OFF");
+        }
+        c = s / 4000.0f;
+        v = b * 0.00125f;
+        // Port B, range round to 0.1A (400lsb)
+        low_s = min_s / 400 * 400;
+        high_s = (max_s + 400) / 400 * 400;
+        low_c = low_s / 4000.0f;
+        high_c = high_s / 4000.0f;
     }
-    //_sa->terminal.home();
-    //_sa->terminal.printf("%.4f/%.4f\n", _wh, _ah);
-    //_sa->terminal.printf("%.3f - %.3f (%.3f - %.3f)\n", min_s / 10000.0f, max_s / 10000.0f, low_s / 10000.0f, high_s / 10000.0f);
-    //_sa->terminal.printf("%.2f - %.2f (%d - %d)\n", min_b * 0.00125f, max_b * 0.00125f, min_b, max_b);
+    // Voltage
+    snprintf(buf, buf_len, "%.3fV", v);
+    _sa->oled.getTextBounds(buf, 0, 22, &x1, &y1, &w, &h);
+    _sa->oled.setCursor(48 - w, 22);
+    _sa->oled.print(buf);
+    // Current
+    snprintf(buf, buf_len, "%.3fA", c);
+    _sa->oled.getTextBounds(buf, 0, 31, &x1, &y1, &w, &h);
+    _sa->oled.setCursor(48 - w, 31);
+    _sa->oled.print(buf);
+    // WH
+    snprintf(buf, buf_len, "%.3fWh", _wh);
+    _sa->oled.getTextBounds(buf, 0, 40, &x1, &y1, &w, &h);
+    _sa->oled.setCursor(48 - w, 40);
+    _sa->oled.print(buf);
+    // AH
+    if (_ah < 1.0f)
+        snprintf(buf, buf_len, "%dmAh", (int)(_ah * 1000));
+    else
+        snprintf(buf, buf_len, "%.1fAh", _ah * 1000);
+    _sa->oled.getTextBounds(buf, 0, 49, &x1, &y1, &w, &h);
+    _sa->oled.setCursor(48 - w, 49);
+    _sa->oled.print(buf);
+    // Waveform
+    _sa->oled.drawRect(54, 0, 202, 52, 0x0F);
+    int y0 = map(_waveform_s[0], low_s, high_s, 50, 1);
+    for (int i = 1; i < _waveform_s.size(); ++i)
+    {
+        int y = map(_waveform_s[i], low_s, high_s, 50, 1);
+        _sa->oled.drawLine(54 + i, y0, 55 + i, y, 0x04);
+        y0 = y;
+    }
+    // Current labels
+    _sa->oled.setCursor(56, 8);
+    _sa->oled.printf("%0.1fA", high_c);
+    _sa->oled.setCursor(56, 49);
+    _sa->oled.printf("%0.1fA", low_c);
+    // Draw!
     _sa->oled.display();
 }
