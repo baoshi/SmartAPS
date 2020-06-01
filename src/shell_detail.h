@@ -32,11 +32,10 @@ private:
     channel_t _channel;
     bool _channel_enabled;
     fps_t _fps;
-    unsigned long _timestamp_back_to_overview;
+    unsigned long _timestamp_per_1s, _timestamp_back_to_overview;
     int16_t _port_a_s, _port_a_b;
     int16_t _port_b_s, _port_b_b;
     int16_t _usb_s, _usb_b;
-    float _ah, _wh;
     static const int _waveform_length = 200;
     RingBuffer<int16_t> _waveform_s;
     RingBuffer<int16_t> _waveform_b;
@@ -45,7 +44,6 @@ private:
     void stop_sampling(void);
     void draw_ui();
 friend void sampling_fn(void *);
-    int _count, _max_count;
 };
 
 

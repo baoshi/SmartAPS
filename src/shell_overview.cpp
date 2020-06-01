@@ -41,7 +41,7 @@ static const char *TAG = "overview";
  * - output current change by 200mA
  * 
  * Publishes:
- * V/A of all channels every  5 second
+ * V/A of all channels every minute
  */
 
 OverviewShell::OverviewShell(SmartAPS* sa) : Shell(sa)
@@ -84,7 +84,8 @@ void OverviewShell::enter(unsigned long now)
     _usb_b = _sa->ina226_usb.cache_bus;
     _usb_s = _sa->ina226_usb.cache_shunt;
     _timestamp_per_500ms = 0;    // The 500ms task will be called immediately when enter loop
-    _timestamp_per_5000ms = now; // The 5000ms task will be called after 5000ms
+    _timestamp_per_1s = now;
+    _timestamp_publish_ha = now; // The homeassistant update interval
 }
 
 
@@ -250,8 +251,35 @@ Shell* OverviewShell::loop(unsigned long now)
             }
         }
     }
-    // Publish reading every 5 seconds
-    if (now - _timestamp_per_5000ms > 5000)
+    // Every 1 second accumulate AH/WH
+    if (now - _timestamp_per_1s > 1000)
+    {
+        float v, c;
+        // USB data
+        v = _usb_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_usb += c / 3600.0f;
+        _sa->wh_usb += (c * v) / 3600.0f;
+        // Port A
+        v = _port_a_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _port_a_s / 4000.0f;  // ( * 2.5u / 0.01 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_port_a += c / 3600.0f;
+        _sa->wh_port_a += (c * v) / 3600.0f;
+        // Port B
+        v = _port_b_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_port_b += c / 3600.0f;
+        _sa->wh_port_b += (c * v) / 3600.0f;
+        _timestamp_per_1s = now;
+    }
+    // Publish reading every 60s
+    if (now - _timestamp_publish_ha > 60000)
     {
         float v, c;
         // USB data
@@ -269,7 +297,7 @@ Shell* OverviewShell::loop(unsigned long now)
         c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
         _sa->sensor_port_b_v->publish_state(v);
         _sa->sensor_port_b_c->publish_state(c);
-        _timestamp_per_5000ms = now;
+        _timestamp_publish_ha = now;
     }
     return this;
 }

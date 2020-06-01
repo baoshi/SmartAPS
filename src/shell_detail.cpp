@@ -17,6 +17,7 @@ static const char *TAG = "dtshell";
  * Detail shell
  * Actions:
  * s2 switches on/off channel
+ * s2 hold clear accumulated AH/WH
  * s3 toggle samples/second
  * s1 switches to next shell (next channel, until last channel then go back to overview)
  *
@@ -47,6 +48,7 @@ void sampling_fn(void * param)
 {
     DetailShell* ds = reinterpret_cast<DetailShell*>(param);
     uint32_t notify;
+    int frame = 0;
     long accu_s = 0, accu_b = 0;
     int accu_count = 0;
     ESP_LOGI(TAG, "Sampling task started");
@@ -67,12 +69,42 @@ void sampling_fn(void * param)
                 {
                 case CHANNEL_USB:
                     ds->_sa->ina226_usb.read(s, b);
+                    ds->_usb_s = s;
+                    ds->_usb_b = b;
+                    // for every 5 seconds (500 samples on selected channel), we sneak in 
+                    // sampling of the two other channels
+                    if (++frame > 499)
+                    {
+                        ds->_sa->ina226_port_a.read(ds->_port_a_s, ds->_port_a_b);
+                        ds->_sa->ina226_port_b.read(ds->_port_b_s, ds->_port_b_b);
+                        frame = 0;
+                    }
                     break;
                 case CHANNEL_PORT_A:
                     ds->_sa->ina226_port_a.read(s, b);
+                    ds->_port_a_s = s;
+                    ds->_port_a_b = b;
+                    // for every 5 seconds (500 samples on selected channel), we sneak in 
+                    // sampling of the two other channels
+                    if (++frame > 499)
+                    {
+                        ds->_sa->ina226_usb.read(ds->_usb_s, ds->_usb_b);
+                        ds->_sa->ina226_port_b.read(ds->_port_b_s, ds->_port_b_b);
+                        frame = 0;
+                    }
                     break;
                 case CHANNEL_PORT_B:
                     ds->_sa->ina226_port_b.read(s, b);
+                    ds->_port_b_s = s;
+                    ds->_port_b_b = b;
+                    // for every 5 seconds (500 samples on selected channel), we sneak in 
+                    // sampling of the two other channels
+                    if (++frame > 499)
+                    {
+                        ds->_sa->ina226_usb.read(ds->_usb_s, ds->_usb_b);
+                        ds->_sa->ina226_port_a.read(ds->_port_a_s, ds->_port_a_b);
+                        frame = 0;
+                    }
                     break;
                 }
                 // accumulating samples
@@ -194,32 +226,37 @@ void DetailShell::enter(unsigned long now)
     {
     case CHANNEL_USB:
         _channel_enabled = id(out_usb).state;
-        _sa->ina226_port_a.reset();
-        _sa->ina226_port_b.reset();
+        _sa->ina226_port_a.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_port_b.start(SAMPLE_MODE_300MS_CONTINUOUS);
         _sa->ina226_usb.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;        
     case CHANNEL_PORT_A:
         _channel_enabled = id(out_port_a).state;
-        _sa->ina226_port_b.reset();
-        _sa->ina226_usb.reset();
+        _sa->ina226_port_b.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_usb.start(SAMPLE_MODE_300MS_CONTINUOUS);
         _sa->ina226_port_a.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;
     case CHANNEL_PORT_B:
         _channel_enabled = id(out_port_b).state;
-        _sa->ina226_port_a.reset();
-        _sa->ina226_usb.reset();
+        _sa->ina226_port_a.start(SAMPLE_MODE_300MS_CONTINUOUS);
+        _sa->ina226_usb.start(SAMPLE_MODE_300MS_CONTINUOUS);
         _sa->ina226_port_b.start(SAMPLE_MODE_10MS_CONTINUOUS);
         break;
     }
-    _wh = 0; _ah = 0;
+    _port_a_b = _sa->ina226_port_a.cache_bus;
+    _port_a_s = _sa->ina226_port_a.cache_shunt;
+    _port_b_b = _sa->ina226_port_b.cache_bus;
+    _port_b_s = _sa->ina226_port_b.cache_shunt;
+    _usb_b = _sa->ina226_usb.cache_bus;
+    _usb_s = _sa->ina226_usb.cache_shunt;
     _waveform_s.reset();
     _waveform_b.reset();
     _fps = FPS_100;
     sampling_timer = timerBegin(0, 80, true);    // 1us timer, count up
     timerAttachInterrupt(sampling_timer, on_sampling_timer, true);
     timerAlarmWrite(sampling_timer, 10000, true);    // 10ms
+    _timestamp_per_1s = now;
     _timestamp_back_to_overview = now;
-    _count = 0; _max_count = 0;
     start_sampling();
 }
 
@@ -304,19 +341,37 @@ Shell* DetailShell::loop(unsigned long now)
         redraw = true;
         _timestamp_back_to_overview = now;
     }
+    if (BUTTON_EVENT_ID(e2) == BUTTON_EVENT_HOLDING)
+    {
+        // sw2 hold start, clear accumulated AH/WH
+        switch (_channel)
+        {
+        case CHANNEL_USB:
+            _sa->ah_usb = 0.0f;
+            _sa->wh_usb = 0.0f;
+            break;
+        case CHANNEL_PORT_A:
+            _sa->ah_port_a = 0.0f;
+            _sa->wh_port_a = 0.0f;
+            break;
+        case CHANNEL_PORT_B:
+            _sa->ah_port_b = 0.0f;
+            _sa->wh_port_b = 0.0f;
+            break;
+        }
+        redraw = true;
+        _timestamp_back_to_overview = now;
+    }
     if (now - _timestamp_back_to_overview > BACK_TO_OVERVIEW_TIMER)
     {
         // Go back to overview shell
         _channel = CHANNEL_USB;   // next time start from USB
         return (&(_sa->shell_overview));
     }
-
     // Process buffer
      if (sample_count > 0)
      {
         redraw = true;
-        _count = sample_count;
-        if (_count > _max_count) _max_count = _count;
      }
     portENTER_CRITICAL(&sample_buffer_mux);
     for (int i = 0; i < sample_count; ++i)
@@ -335,20 +390,40 @@ Shell* DetailShell::loop(unsigned long now)
             switch (_fps)
             {
             case FPS_100:
-                _ah += c / 360000.0f;
-                _wh += (c * v) / 360000.0f;
+                _sa->ah_usb += c / 360000.0f;
+                _sa->wh_usb += (c * v) / 360000.0f;
                 break;
             case FPS_10:
-                _ah += c / 36000.0f;
-                _wh += (c * v) / 36000.0f;
+                _sa->ah_usb += c / 36000.0f;
+                _sa->wh_usb += (c * v) / 36000.0f;
                 break;
             case FPS_1:
-                _ah += c / 3600.0f;
-                _wh += (c * v) / 3600.0f;
+                _sa->ah_usb += c / 3600.0f;
+                _sa->wh_usb += (c * v) / 3600.0f;
                 break;
             }
             break;
         case CHANNEL_PORT_A:
+            c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            v = sample_buffer_b[i] * 0.00125f;    // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            switch (_fps)
+            {
+            case FPS_100:
+                _sa->ah_port_a += c / 360000.0f;
+                _sa->wh_port_a += (c * v) / 360000.0f;
+                break;
+            case FPS_10:
+                _sa->ah_port_a += c / 36000.0f;
+                _sa->wh_port_a += (c * v) / 36000.0f;
+                break;
+            case FPS_1:
+                _sa->ah_port_a += c / 3600.0f;
+                _sa->wh_port_a += (c * v) / 3600.0f;
+                break;
+            }
+            break;
         case CHANNEL_PORT_B:
             c = sample_buffer_s[i] / 4000.0f;     // ( * 2.5u / 0.01 )
             if (c < 0.0f) c = 0.0f;
@@ -357,16 +432,16 @@ Shell* DetailShell::loop(unsigned long now)
             switch (_fps)
             {
             case FPS_100:
-                _ah += c / 360000.0f;
-                _wh += (c * v) / 360000.0f;
+                _sa->ah_port_b += c / 360000.0f;
+                _sa->wh_port_b += (c * v) / 360000.0f;
                 break;
             case FPS_10:
-                _ah += c / 36000.0f;
-                _wh += (c * v) / 36000.0f;
+                _sa->ah_port_b += c / 36000.0f;
+                _sa->wh_port_b += (c * v) / 36000.0f;
                 break;
             case FPS_1:
-                _ah += c / 3600.0f;
-                _wh += (c * v) / 3600.0f;
+                _sa->ah_port_b += c / 3600.0f;
+                _sa->wh_port_b += (c * v) / 3600.0f;
                 break;
             }
             break;
@@ -379,6 +454,63 @@ Shell* DetailShell::loop(unsigned long now)
     portEXIT_CRITICAL(&sample_buffer_mux);
     if (redraw)
         draw_ui();
+    // Accumulate AH/WH for other channels
+    if (now - _timestamp_per_1s > 1000)
+    {
+        float v, c;
+        switch (_channel)
+        {
+        case CHANNEL_USB:
+            // Port A
+            v = _port_a_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _port_a_s / 4000.0f;  // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_port_a += c / 3600.0f;
+            _sa->wh_port_a += (c * v) / 3600.0f;
+            // Port B
+            v = _port_b_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_port_b += c / 3600.0f;
+            _sa->wh_port_b += (c * v) / 3600.0f;
+            break;
+        case CHANNEL_PORT_A:
+            // USB data
+            v = _usb_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_usb += c / 3600.0f;
+            _sa->wh_usb += (c * v) / 3600.0f;
+            // Port B
+            v = _port_b_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_port_b += c / 3600.0f;
+            _sa->wh_port_b += (c * v) / 3600.0f;
+            break;
+        case CHANNEL_PORT_B:
+            // USB data
+            v = _usb_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_usb += c / 3600.0f;
+            _sa->wh_usb += (c * v) / 3600.0f;
+            // Port A
+            v = _port_a_b * 0.00125f;  // 1.25mV/lsb
+            if (v < 0.0f) v = 0.0f;
+            c = _port_a_s / 4000.0f;  // ( * 2.5u / 0.01 )
+            if (c < 0.0f) c = 0.0f;
+            _sa->ah_port_a += c / 3600.0f;
+            _sa->wh_port_a += (c * v) / 3600.0f;
+            break;
+        }
+        _timestamp_per_1s = now;
+    }
     return this;
 }
 
@@ -412,7 +544,7 @@ void DetailShell::draw_ui()
     int16_t high_s = 0, low_s = 0;
     float high_c = 0.0f, low_c = 0.0f;
     int16_t s = 0, b = 0;
-    float c = 0.0f, v = 0.0f;
+    float c = 0.0f, v = 0.0f, ah = 0.0f, wh = 0.0f;
     
     // Nothing to draw if not enough data
     if (_waveform_s.size() < 2)
@@ -472,6 +604,8 @@ void DetailShell::draw_ui()
         }
         c = s / 10000.0f;
         v = b * 0.00125f;
+        ah = _sa->ah_usb;
+        wh = _sa->wh_usb;
         // USB, range round to 0.1A (1000lsb)
         low_s = min_s / 1000 * 1000;
         high_s = (max_s + 1000) / 1000 * 1000;
@@ -496,6 +630,8 @@ void DetailShell::draw_ui()
         }
         c = s / 4000.0f;
         v = b * 0.00125f;
+        ah = _sa->ah_port_a;
+        wh = _sa->wh_port_a;
         // Port A, range round to 0.1A (400lsb)
         low_s = min_s / 400 * 400;
         high_s = (max_s + 400) / 400 * 400;
@@ -520,6 +656,8 @@ void DetailShell::draw_ui()
         }
         c = s / 4000.0f;
         v = b * 0.00125f;
+        ah = _sa->ah_port_b;
+        wh = _sa->wh_port_b;
         // Port B, range round to 0.1A (400lsb)
         low_s = min_s / 400 * 400;
         high_s = (max_s + 400) / 400 * 400;
@@ -537,15 +675,17 @@ void DetailShell::draw_ui()
     _sa->oled.setCursor(48 - w, 31);
     _sa->oled.print(buf);
     // WH
-    snprintf(buf, buf_len, "%.3fWh", _wh);
+    snprintf(buf, buf_len, "%.3f", wh);
+    buf[5] = '\0';
+    strncat(buf, "wH", buf_len);
     _sa->oled.getTextBounds(buf, 0, 40, &x1, &y1, &w, &h);
     _sa->oled.setCursor(48 - w, 40);
     _sa->oled.print(buf);
     // AH
-    if (_ah < 1.0f)
-        snprintf(buf, buf_len, "%dmAh", (int)(_ah * 1000));
+    if (ah < 10.0f)
+        snprintf(buf, buf_len, "%dmAh", (int)(ah * 1000));
     else
-        snprintf(buf, buf_len, "%.1fAh", _ah * 1000);
+        snprintf(buf, buf_len, "%.1fAh", ah);
     _sa->oled.getTextBounds(buf, 0, 49, &x1, &y1, &w, &h);
     _sa->oled.setCursor(48 - w, 49);
     _sa->oled.print(buf);

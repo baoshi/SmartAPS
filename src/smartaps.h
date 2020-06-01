@@ -61,6 +61,9 @@ public:
     INA226 ina226_port_a, ina226_port_b, ina226_usb;
     TEMT6000 temt6000;
 
+    float wh_port_a, wh_port_b, wh_usb;
+    float ah_port_a, ah_port_b, ah_usb;
+
     OverviewShell shell_overview;
     ScreenSaverShell shell_screensaver;
     DetailShell shell_detail;
@@ -68,23 +71,11 @@ public:
 private:    // TextSensor related
     uint64_t _uptime;
     void _publish_uptime(void);
-    unsigned long _timestamp_per_1m;
+    unsigned long _timestamp_per_60s;
 
 private:
     Shell* _cur_shell;
     Shell* _next_shell;
-
-/*
-    portMUX_TYPE _sample_buffer_mux;
-    const static int _sample_buffer_length = 64;
-    int16_t _sample_buffer_v[_sample_buffer_length];
-    int16_t _sample_buffer_c[_sample_buffer_length];
-    int _sample_count;
-    static void _sample_fn(void *);
-    hw_timer_t *_sample_timer;
-*/
-
-
 };
 
 

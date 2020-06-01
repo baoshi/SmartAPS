@@ -72,8 +72,8 @@ void ScreenSaverShell::enter(unsigned long now)
     _usb_b = _sa->ina226_usb.cache_bus;
     _usb_s = _sa->ina226_usb.cache_shunt;
     _timestamp_per_40ms = now;
-    _timestamp_per_500ms = now;
-    _timestamp_per_5000ms = now;
+    _timestamp_per_1s = now;
+    _timestamp_publish_ha = now;
     _frame = 0; _item = 0;
     _x = _sa->oled.width() / 2;
     _y = _sa->oled.height() / 2;
@@ -155,39 +155,61 @@ Shell* ScreenSaverShell::loop(unsigned long now)
             _draw_ui();
         _timestamp_per_40ms = now;
     }
-    // Measurement every 500ms
-    if (now - _timestamp_per_500ms > 500)
+    // Measurement every 1s
+    if (now - _timestamp_per_1s > 1000)
     {
-        // collect samples, compare, if changed (200mA), exit screen saver
-        int16_t s, b, d;
-        _sa->ina226_port_a.read(s, b);
-        d = s - _port_a_s; d = d > 0 ? d : -d;
-        _port_a_s = s; _port_a_b = b;
-        if (d > 800)
-        {
-            ESP_LOGI(TAG, "Port A current changed");
-            return (&(_sa->shell_overview));
-        }
-        _sa->ina226_port_b.read(s, b);
-        d = s - _port_b_s; d = d > 0 ? d : -d;
-        _port_b_s = s; _port_b_b = b;
-        if (d > 800)
-        {
-            ESP_LOGI(TAG, "Port B current changed");
-            return (&(_sa->shell_overview));
-        }
+        // collect samples, 
+        int16_t s, b, d_u, d_a, d_b;
         _sa->ina226_usb.read(s, b);
-        d = s - _usb_s; d = d > 0 ? d : -d;
+        d_u = s - _usb_s; d_u = d_u > 0 ? d_u : -d_u;
         _usb_s = s; _usb_b = b;
-        if (d > 2000)
+        _sa->ina226_port_a.read(s, b);
+        d_a = s - _port_a_s; d_a = d_a > 0 ? d_a : -d_a;
+        _port_a_s = s; _port_a_b = b;
+        _sa->ina226_port_b.read(s, b);
+        d_b = s - _port_b_s; d_b = d_b > 0 ? d_b : -d_b;
+        _port_b_s = s; _port_b_b = b;
+        // accumulate AH/WH
+        float v, c;
+        v = _usb_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _usb_s / 10000.0f;  // ( * 2.5u / 0.025 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_usb += c / 3600.0f;
+        _sa->wh_usb += (c * v) / 3600.0f;
+        v = _port_a_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _port_a_s / 4000.0f;  // ( * 2.5u / 0.01 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_port_a += c / 3600.0f;
+        _sa->wh_port_a += (c * v) / 3600.0f;
+        v = _port_b_b * 0.00125f;  // 1.25mV/lsb
+        if (v < 0.0f) v = 0.0f;
+        c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
+        if (c < 0.0f) c = 0.0f;
+        _sa->ah_port_b += c / 3600.0f;
+        _sa->wh_port_b += (c * v) / 3600.0f;
+        // Compare current, if changed (200mA), exit screen saver
+        if (d_u > 2000)
         {
             ESP_LOGI(TAG, "USB current changed");
             return (&(_sa->shell_overview));
         }
-        _timestamp_per_500ms = now;
+        if (d_a > 800)
+        {
+            ESP_LOGI(TAG, "Port A current changed");
+            return (&(_sa->shell_overview));
+        }
+        
+        if (d_b > 800)
+        {
+            ESP_LOGI(TAG, "Port B current changed");
+            return (&(_sa->shell_overview));
+        }
+        _timestamp_per_1s = now;
     }
-    // Publish reading every 5 seconds
-    if (now - _timestamp_per_5000ms > 5000)
+    // Publish reading every 60 seconds
+    if (now - _timestamp_publish_ha > 60000)
     {
         float v, c;
         // USB data
@@ -205,7 +227,7 @@ Shell* ScreenSaverShell::loop(unsigned long now)
         c = _port_b_s / 4000.0f;  // ( * 2.5u / 0.01 )
         _sa->sensor_port_b_v->publish_state(v);
         _sa->sensor_port_b_c->publish_state(c);
-        _timestamp_per_5000ms = now;
+        _timestamp_publish_ha = now;
     }
     return this;
 }

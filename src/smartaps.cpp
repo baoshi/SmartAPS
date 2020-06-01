@@ -20,6 +20,8 @@ SmartAPS::SmartAPS() :
     sensor_port_a_c = new Sensor();
     sensor_port_b_v = new Sensor();
     sensor_port_b_c = new Sensor();
+    wh_port_a = wh_port_b = wh_usb = 0.0f;
+    ah_port_a = ah_port_b = ah_usb = 0.0f;
     _uptime = 0;
     _cur_shell = NULL;
     _next_shell = NULL;
@@ -124,7 +126,7 @@ void SmartAPS::setup()
     sw2.begin(false);
     sw3.begin(false);
     // Timestamps
-    _timestamp_per_1m = millis();
+    _timestamp_per_60s = millis();
     // Shells
     shell_overview.init();
     shell_detail.init();
@@ -138,10 +140,10 @@ void SmartAPS::setup()
 void SmartAPS::loop()
 {
     unsigned long now = millis();
-    if (now - _timestamp_per_1m > 60000)
+    if (now - _timestamp_per_60s > 60000)
     {
         _publish_uptime();
-        _timestamp_per_1m = now;
+        _timestamp_per_60s = now;
     }
     if (_next_shell != _cur_shell)
     {

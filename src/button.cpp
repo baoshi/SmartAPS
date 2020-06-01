@@ -10,7 +10,7 @@ enum
     STATE_UP,
     STATE_DOWN_DEBOUNCE,
     STATE_DOWN,
-    STATE_HOLD_START,
+    STATE_HOLDING,
     STATE_HOLD_END_DEBOUNCE,
     STATE_UP_DEBOUNCE,
 };
@@ -132,7 +132,7 @@ uint32_t Button::update(unsigned long now)
                 {
                     // button was pressed long enough
                     result = BUTTON_EVENT_HOLD_START | ((now - _time_down) << 4);
-                    _state = STATE_HOLD_START;
+                    _state = STATE_HOLDING;
                 }
             }
             break;
@@ -151,18 +151,22 @@ uint32_t Button::update(unsigned long now)
                 }
             }
             break;
-        case STATE_HOLD_START:
+        case STATE_HOLDING:
             if (current == _released)
             {
                 _state = STATE_HOLD_END_DEBOUNCE;
                 _time_up = now;
+            }
+            else
+            {
+                result = BUTTON_EVENT_HOLDING | ((now - _time_down) << 4);
             }
             break;
         case STATE_HOLD_END_DEBOUNCE:
             if (current == _pressed)
             {
                 // Bouncing, go back to HOLD DOWN state (bouncing)
-                _state = STATE_HOLD_START;
+                _state = STATE_HOLDING;
             }
             else
             {

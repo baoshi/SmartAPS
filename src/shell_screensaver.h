@@ -15,7 +15,7 @@ public:
     Shell* loop(unsigned long now) override;
 
 private:
-    unsigned long _timestamp_per_40ms, _timestamp_per_500ms, _timestamp_per_5000ms;
+    unsigned long _timestamp_per_40ms, _timestamp_per_1s, _timestamp_publish_ha;
     bool _port_a_state, _port_b_state, _usb_state;
     bool _display_on;
     unsigned long _timestamp_light_off;
