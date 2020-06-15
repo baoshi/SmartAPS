@@ -14,7 +14,7 @@ extern gpio::GPIOSwitch *out_port_a;
 extern gpio::GPIOSwitch *out_port_b;
 extern gpio::GPIOSwitch *out_usb;
 
-#define LOWLIGHT_THRESHOLD      3       // below this value is considered dark room
+#define LOWLIGHT_THRESHOLD      1       // below this value is considered dark room
 #define LIGHT_OFF_TIMER         30000   // turn off display 30 seconds after room go dark
 #define SCREENSAVER_TIMER       300000  // turn on screen saver if screen stays on for 5 minutes
 
