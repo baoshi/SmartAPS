@@ -9,7 +9,7 @@ extern gpio::GPIOSwitch *out_port_a;
 extern gpio::GPIOSwitch *out_port_b;
 extern gpio::GPIOSwitch *out_usb;
 
-#define LOWLIGHT_THRESHOLD      5       // below this value is considered dark room
+#define LOWLIGHT_THRESHOLD      3       // below this value is considered dark room
 #define LIGHT_OFF_TIMER         30000   // turn off display 30 seconds after room go dark
 #define FRAMES_PER_ITEM         125     // We display at 25fps. 125 frames is about 5 seconds
 
