@@ -25,7 +25,7 @@ F 3 "https://datasheet.lcsc.com/szlcsc/Cyntec-MUN12AD01-SH_C218786.pdf" H 5400 1
 	1    0    0    -1  
 $EndComp
 $Comp
-L BZ_Connector:Header_01x02 P1
+L BZ_Connector:Conn_01x02 P1
 U 1 1 5E6687FD
 P 750 950
 F 0 "P1" H 750 1100 40  0000 C CNN
@@ -674,7 +674,7 @@ F 3 "" H 6450 2150 40  0001 C CNN
 	0    -1   -1   0   
 $EndComp
 $Comp
-L BZ_Connector:Header_01x04 P4
+L BZ_Connector:Conn_01x04 P4
 U 1 1 5EA818C1
 P 7050 2150
 F 0 "P4" H 7128 2188 40  0000 L CNN
@@ -1110,14 +1110,14 @@ EN
 Wire Wire Line
 	10050 4150 10250 4150
 $Comp
-L BZ_Connector:Header_02x05 P6
+L BZ_Connector:Conn_02x05 P6
 U 1 1 5E63D243
-P 9750 3950
-F 0 "P6" H 9750 4250 40  0000 C CNN
-F 1 "JESP32-DBG" H 9800 3650 40  0000 C CNN
-F 2 "BZ_Connector:BHDR-THT-Vert-50mil_02x05" H 9750 3950 40  0001 C CNN
-F 3 "~" H 9750 3950 40  0001 C CNN
-	1    9750 3950
+P 9800 3950
+F 0 "P6" H 9800 4250 40  0000 C CNN
+F 1 "JESP32-DBG" H 9850 3650 40  0000 C CNN
+F 2 "BZ_Connector:BHDR-THT-Vert-50mil_02x05" H 9800 3950 40  0001 C CNN
+F 3 "~" H 9800 3950 40  0001 C CNN
+	1    9800 3950
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -1312,7 +1312,7 @@ Wire Wire Line
 Wire Wire Line
 	950  900  1000 900 
 $Comp
-L BZ_Connector:Header_01x02 P2
+L BZ_Connector:Conn_01x02 P2
 U 1 1 5EE58F91
 P 750 1300
 F 0 "P2" H 750 1450 40  0000 C CNN
@@ -1444,7 +1444,7 @@ Wire Wire Line
 Wire Wire Line
 	3450 2100 3500 2100
 $Comp
-L BZ_Connector:Header_01x04 P3
+L BZ_Connector:Conn_01x04 P3
 U 1 1 5EB402BE
 P 3700 2150
 F 0 "P3" H 3778 2188 40  0000 L CNN
@@ -2993,7 +2993,7 @@ Wire Wire Line
 Wire Wire Line
 	3900 5950 4150 5950
 $Comp
-L BZ_Connector:Header_01x04 P7
+L BZ_Connector:Conn_01x04 P7
 U 1 1 5EDC1433
 P 8600 5200
 F 0 "P7" H 8678 5238 40  0000 L CNN

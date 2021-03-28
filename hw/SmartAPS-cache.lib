@@ -20,11 +20,11 @@ X C 3 100 150 50 D 40 40 1 1 P
 ENDDRAW
 ENDDEF
 #
-# BZ_Connector_Header_01x02
+# BZ_Connector_Conn_01x02
 #
-DEF BZ_Connector_Header_01x02 P 0 20 Y N 1 F N
+DEF BZ_Connector_Conn_01x02 P 0 20 Y N 1 F N
 F0 "P" 0 150 40 H V C CNN
-F1 "BZ_Connector_Header_01x02" 0 -150 40 H V C CNN
+F1 "BZ_Connector_Conn_01x02" 0 -150 40 H V C CNN
 F2 "" 0 -50 40 H I C CNN
 F3 "" 0 -50 40 H I C CNN
 $FPLIST
@@ -37,11 +37,11 @@ X Pin_2 2 -200 -50 150 R 40 40 1 1 P
 ENDDRAW
 ENDDEF
 #
-# BZ_Connector_Header_01x04
+# BZ_Connector_Conn_01x04
 #
-DEF BZ_Connector_Header_01x04 P 0 20 Y N 1 F N
+DEF BZ_Connector_Conn_01x04 P 0 20 Y N 1 F N
 F0 "P" 0 250 40 H V C CNN
-F1 "BZ_Connector_Header_01x04" 0 -250 40 H V C CNN
+F1 "BZ_Connector_Conn_01x04" 0 -250 40 H V C CNN
 F2 "" 0 50 40 H I C CNN
 F3 "" 0 50 40 H I C CNN
 $FPLIST
@@ -56,28 +56,28 @@ X Pin_4 4 -200 -150 150 R 40 40 1 1 P
 ENDDRAW
 ENDDEF
 #
-# BZ_Connector_Header_02x05
+# BZ_Connector_Conn_02x05
 #
-DEF BZ_Connector_Header_02x05 P 0 20 Y N 1 F N
-F0 "P" 50 300 40 H V C CNN
-F1 "BZ_Connector_Header_02x05" 50 -300 40 H V C CNN
-F2 "" 0 0 40 H I C CNN
-F3 "" 0 0 40 H I C CNN
+DEF BZ_Connector_Conn_02x05 P 0 20 Y N 1 F N
+F0 "P" 0 300 40 H V C CNN
+F1 "BZ_Connector_Conn_02x05" 0 -300 40 H V C CNN
+F2 "" -50 0 40 H I C CNN
+F3 "" -50 0 40 H I C CNN
 $FPLIST
  *02x05*
 $ENDFPLIST
 DRAW
-S -50 250 150 -250 1 1 0 f
-X Pin_1 1 -200 200 150 R 40 40 1 1 P
-X Pin_10 10 300 -200 150 L 40 40 1 1 P
-X Pin_2 2 300 200 150 L 40 40 1 1 P
-X Pin_3 3 -200 100 150 R 40 40 1 1 P
-X Pin_4 4 300 100 150 L 40 40 1 1 P
-X Pin_5 5 -200 0 150 R 40 40 1 1 P
-X Pin_6 6 300 0 150 L 40 40 1 1 P
-X Pin_7 7 -200 -100 150 R 40 40 1 1 P
-X Pin_8 8 300 -100 150 L 40 40 1 1 P
-X Pin_9 9 -200 -200 150 R 40 40 1 1 P
+S -100 250 100 -250 1 1 0 f
+X Pin_1 1 -250 200 150 R 40 40 1 1 P
+X Pin_10 10 250 -200 150 L 40 40 1 1 P
+X Pin_2 2 250 200 150 L 40 40 1 1 P
+X Pin_3 3 -250 100 150 R 40 40 1 1 P
+X Pin_4 4 250 100 150 L 40 40 1 1 P
+X Pin_5 5 -250 0 150 R 40 40 1 1 P
+X Pin_6 6 250 0 150 L 40 40 1 1 P
+X Pin_7 7 -250 -100 150 R 40 40 1 1 P
+X Pin_8 8 250 -100 150 L 40 40 1 1 P
+X Pin_9 9 -250 -200 150 R 40 40 1 1 P
 ENDDRAW
 ENDDEF
 #
