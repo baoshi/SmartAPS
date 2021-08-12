@@ -63,6 +63,11 @@ class APIConnection : public APIServerConnection {
   bool send_climate_info(climate::Climate *climate);
   void climate_command(const ClimateCommandRequest &msg) override;
 #endif
+#ifdef USE_NUMBER
+  bool send_number_state(number::Number *number, float state);
+  bool send_number_info(number::Number *number);
+  void number_command(const NumberCommandRequest &msg) override;
+#endif
   bool send_log_message(int level, const char *tag, const char *line);
   void send_homeassistant_service_call(const HomeassistantServiceResponse &call) {
     if (!this->service_call_subscription_)
@@ -138,12 +143,6 @@ class APIConnection : public APIServerConnection {
   void on_timeout_(uint32_t time);
   void on_data_(uint8_t *buf, size_t len);
   void parse_recv_buffer_();
-  void set_nodelay(bool nodelay) override {
-    if (nodelay == this->current_nodelay_)
-      return;
-    this->client_->setNoDelay(nodelay);
-    this->current_nodelay_ = nodelay;
-  }
 
   enum class ConnectionState {
     WAITING_FOR_HELLO,

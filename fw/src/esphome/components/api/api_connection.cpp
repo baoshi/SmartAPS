@@ -9,11 +9,14 @@
 #ifdef USE_HOMEASSISTANT_TIME
 #include "esphome/components/homeassistant/time/homeassistant_time.h"
 #endif
+#ifdef USE_FAN
+#include "esphome/components/fan/fan_helpers.h"
+#endif
 
 namespace esphome {
 namespace api {
 
-static const char *TAG = "api.connection";
+static const char *const TAG = "api.connection";
 
 APIConnection::APIConnection(AsyncClient *client, APIServer *parent)
     : client_(client), parent_(parent), initial_state_iterator_(parent, this), list_entities_iterator_(parent, this) {
@@ -137,7 +140,6 @@ void APIConnection::loop() {
       // bool done = 3;
       bool done = this->image_reader_.available() == to_send;
       buffer.encode_bool(3, done);
-      this->set_nodelay(false);
       bool success = this->send_buffer(buffer, 44);
 
       if (success) {
@@ -247,8 +249,12 @@ bool APIConnection::send_fan_state(fan::FanState *fan) {
   resp.state = fan->state;
   if (traits.supports_oscillation())
     resp.oscillating = fan->oscillating;
-  if (traits.supports_speed())
-    resp.speed = static_cast<enums::FanSpeed>(fan->speed);
+  if (traits.supports_speed()) {
+    resp.speed_level = fan->speed;
+    resp.speed = static_cast<enums::FanSpeed>(fan::speed_level_to_enum(fan->speed, traits.supported_speed_count()));
+  }
+  if (traits.supports_direction())
+    resp.direction = static_cast<enums::FanDirection>(fan->direction);
   return this->send_fan_state_response(resp);
 }
 bool APIConnection::send_fan_info(fan::FanState *fan) {
@@ -260,6 +266,8 @@ bool APIConnection::send_fan_info(fan::FanState *fan) {
   msg.unique_id = get_default_unique_id("fan", fan);
   msg.supports_oscillation = traits.supports_oscillation();
   msg.supports_speed = traits.supports_speed();
+  msg.supports_direction = traits.supports_direction();
+  msg.supported_speed_count = traits.supported_speed_count();
   return this->send_list_entities_fan_response(msg);
 }
 void APIConnection::fan_command(const FanCommandRequest &msg) {
@@ -267,13 +275,21 @@ void APIConnection::fan_command(const FanCommandRequest &msg) {
   if (fan == nullptr)
     return;
 
+  auto traits = fan->get_traits();
+
   auto call = fan->make_call();
   if (msg.has_state)
     call.set_state(msg.state);
   if (msg.has_oscillating)
     call.set_oscillating(msg.oscillating);
-  if (msg.has_speed)
-    call.set_speed(static_cast<fan::FanSpeed>(msg.speed));
+  if (msg.has_speed_level) {
+    // Prefer level
+    call.set_speed(msg.speed_level);
+  } else if (msg.has_speed) {
+    call.set_speed(fan::speed_enum_to_level(static_cast<fan::FanSpeed>(msg.speed), traits.supported_speed_count()));
+  }
+  if (msg.has_direction)
+    call.set_direction(static_cast<fan::FanDirection>(msg.direction));
   call.perform();
 }
 #endif
@@ -292,6 +308,7 @@ bool APIConnection::send_light_state(light::LightState *light) {
   if (traits.get_supports_brightness())
     resp.brightness = values.get_brightness();
   if (traits.get_supports_rgb()) {
+    resp.color_brightness = values.get_color_brightness();
     resp.red = values.get_red();
     resp.green = values.get_green();
     resp.blue = values.get_blue();
@@ -336,6 +353,8 @@ void APIConnection::light_command(const LightCommandRequest &msg) {
     call.set_state(msg.state);
   if (msg.has_brightness)
     call.set_brightness(msg.brightness);
+  if (msg.has_color_brightness)
+    call.set_color_brightness(msg.color_brightness);
   if (msg.has_rgb) {
     call.set_red(msg.red);
     call.set_green(msg.green);
@@ -378,6 +397,10 @@ bool APIConnection::send_sensor_info(sensor::Sensor *sensor) {
   msg.unit_of_measurement = sensor->get_unit_of_measurement();
   msg.accuracy_decimals = sensor->get_accuracy_decimals();
   msg.force_update = sensor->get_force_update();
+  msg.device_class = sensor->get_device_class();
+  msg.state_class = static_cast<enums::SensorStateClass>(sensor->state_class);
+  msg.last_reset_type = static_cast<enums::SensorLastResetType>(sensor->last_reset_type);
+
   return this->send_list_entities_sensor_response(msg);
 }
 #endif
@@ -456,8 +479,18 @@ bool APIConnection::send_climate_state(climate::Climate *climate) {
   } else {
     resp.target_temperature = climate->target_temperature;
   }
-  if (traits.get_supports_away())
-    resp.away = climate->away;
+  if (traits.get_supports_fan_modes() && climate->fan_mode.has_value())
+    resp.fan_mode = static_cast<enums::ClimateFanMode>(climate->fan_mode.value());
+  if (!traits.get_supported_custom_fan_modes().empty() && climate->custom_fan_mode.has_value())
+    resp.custom_fan_mode = climate->custom_fan_mode.value();
+  if (traits.get_supports_presets() && climate->preset.has_value()) {
+    resp.preset = static_cast<enums::ClimatePreset>(climate->preset.value());
+    resp.legacy_away = resp.preset == enums::CLIMATE_PRESET_AWAY;
+  }
+  if (!traits.get_supported_custom_presets().empty() && climate->custom_preset.has_value())
+    resp.custom_preset = climate->custom_preset.value();
+  if (traits.get_supports_swing_modes())
+    resp.swing_mode = static_cast<enums::ClimateSwingMode>(climate->swing_mode);
   return this->send_climate_state_response(resp);
 }
 bool APIConnection::send_climate_info(climate::Climate *climate) {
@@ -469,16 +502,26 @@ bool APIConnection::send_climate_info(climate::Climate *climate) {
   msg.unique_id = get_default_unique_id("climate", climate);
   msg.supports_current_temperature = traits.get_supports_current_temperature();
   msg.supports_two_point_target_temperature = traits.get_supports_two_point_target_temperature();
-  for (auto mode : {climate::CLIMATE_MODE_AUTO, climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_COOL,
-                    climate::CLIMATE_MODE_HEAT}) {
-    if (traits.supports_mode(mode))
-      msg.supported_modes.push_back(static_cast<enums::ClimateMode>(mode));
-  }
+
+  for (auto mode : traits.get_supported_modes())
+    msg.supported_modes.push_back(static_cast<enums::ClimateMode>(mode));
+
   msg.visual_min_temperature = traits.get_visual_min_temperature();
   msg.visual_max_temperature = traits.get_visual_max_temperature();
   msg.visual_temperature_step = traits.get_visual_temperature_step();
-  msg.supports_away = traits.get_supports_away();
+  msg.legacy_supports_away = traits.supports_preset(climate::CLIMATE_PRESET_AWAY);
   msg.supports_action = traits.get_supports_action();
+
+  for (auto fan_mode : traits.get_supported_fan_modes())
+    msg.supported_fan_modes.push_back(static_cast<enums::ClimateFanMode>(fan_mode));
+  for (auto const &custom_fan_mode : traits.get_supported_custom_fan_modes())
+    msg.supported_custom_fan_modes.push_back(custom_fan_mode);
+  for (auto preset : traits.get_supported_presets())
+    msg.supported_presets.push_back(static_cast<enums::ClimatePreset>(preset));
+  for (auto const &custom_preset : traits.get_supported_custom_presets())
+    msg.supported_custom_presets.push_back(custom_preset);
+  for (auto swing_mode : traits.get_supported_swing_modes())
+    msg.supported_swing_modes.push_back(static_cast<enums::ClimateSwingMode>(swing_mode));
   return this->send_list_entities_climate_response(msg);
 }
 void APIConnection::climate_command(const ClimateCommandRequest &msg) {
@@ -495,8 +538,54 @@ void APIConnection::climate_command(const ClimateCommandRequest &msg) {
     call.set_target_temperature_low(msg.target_temperature_low);
   if (msg.has_target_temperature_high)
     call.set_target_temperature_high(msg.target_temperature_high);
-  if (msg.has_away)
-    call.set_away(msg.away);
+  if (msg.has_legacy_away)
+    call.set_preset(msg.legacy_away ? climate::CLIMATE_PRESET_AWAY : climate::CLIMATE_PRESET_HOME);
+  if (msg.has_fan_mode)
+    call.set_fan_mode(static_cast<climate::ClimateFanMode>(msg.fan_mode));
+  if (msg.has_custom_fan_mode)
+    call.set_fan_mode(msg.custom_fan_mode);
+  if (msg.has_preset)
+    call.set_preset(static_cast<climate::ClimatePreset>(msg.preset));
+  if (msg.has_custom_preset)
+    call.set_preset(msg.custom_preset);
+  if (msg.has_swing_mode)
+    call.set_swing_mode(static_cast<climate::ClimateSwingMode>(msg.swing_mode));
+  call.perform();
+}
+#endif
+
+#ifdef USE_NUMBER
+bool APIConnection::send_number_state(number::Number *number, float state) {
+  if (!this->state_subscription_)
+    return false;
+
+  NumberStateResponse resp{};
+  resp.key = number->get_object_id_hash();
+  resp.state = state;
+  resp.missing_state = !number->has_state();
+  return this->send_number_state_response(resp);
+}
+bool APIConnection::send_number_info(number::Number *number) {
+  ListEntitiesNumberResponse msg;
+  msg.key = number->get_object_id_hash();
+  msg.object_id = number->get_object_id();
+  msg.name = number->get_name();
+  msg.unique_id = get_default_unique_id("number", number);
+  msg.icon = number->traits.get_icon();
+
+  msg.min_value = number->traits.get_min_value();
+  msg.max_value = number->traits.get_max_value();
+  msg.step = number->traits.get_step();
+
+  return this->send_list_entities_number_response(msg);
+}
+void APIConnection::number_command(const NumberCommandRequest &msg) {
+  number::Number *number = App.get_number_by_key(msg.key);
+  if (number == nullptr)
+    return;
+
+  auto call = number->make_call();
+  call.set_value(msg.state);
   call.perform();
 }
 #endif
@@ -539,8 +628,6 @@ bool APIConnection::send_log_message(int level, const char *tag, const char *lin
   if (this->log_subscription_ < level)
     return false;
 
-  this->set_nodelay(false);
-
   // Send raw so that we don't copy too much
   auto buffer = this->create_buffer();
   // LogLevel level = 1;
@@ -568,7 +655,7 @@ HelloResponse APIConnection::hello(const HelloRequest &msg) {
 
   HelloResponse resp;
   resp.api_version_major = 1;
-  resp.api_version_minor = 3;
+  resp.api_version_minor = 5;
   resp.server_info = App.get_name() + " (esphome v" ESPHOME_VERSION ")";
   this->connection_state_ = ConnectionState::CONNECTED;
   return resp;
@@ -604,12 +691,17 @@ DeviceInfoResponse APIConnection::device_info(const DeviceInfoRequest &msg) {
 #ifdef USE_DEEP_SLEEP
   resp.has_deep_sleep = deep_sleep::global_has_deep_sleep;
 #endif
+#ifdef ESPHOME_PROJECT_NAME
+  resp.project_name = ESPHOME_PROJECT_NAME;
+  resp.project_version = ESPHOME_PROJECT_VERSION;
+#endif
   return resp;
 }
 void APIConnection::on_home_assistant_state_response(const HomeAssistantStateResponse &msg) {
   for (auto &it : this->parent_->get_state_subs())
-    if (it.entity_id == msg.entity_id)
+    if (it.entity_id == msg.entity_id && it.attribute.value() == msg.attribute) {
       it.callback(msg.state);
+    }
 }
 void APIConnection::execute_service(const ExecuteServiceRequest &msg) {
   bool found = false;
@@ -626,6 +718,7 @@ void APIConnection::subscribe_home_assistant_states(const SubscribeHomeAssistant
   for (auto &it : this->parent_->get_state_subs()) {
     SubscribeHomeAssistantStateResponse resp;
     resp.entity_id = it.entity_id;
+    resp.attribute = it.attribute.value();
     if (!this->send_subscribe_home_assistant_state_response(resp)) {
       this->on_fatal_error();
       return;
@@ -655,8 +748,10 @@ bool APIConnection::send_buffer(ProtoWriteBuffer buffer, uint32_t message_type) 
     }
   }
 
-  this->client_->add(reinterpret_cast<char *>(header.data()), header.size());
-  this->client_->add(reinterpret_cast<char *>(buffer.get_buffer()->data()), buffer.get_buffer()->size());
+  this->client_->add(reinterpret_cast<char *>(header.data()), header.size(),
+                     ASYNC_WRITE_FLAG_COPY | ASYNC_WRITE_FLAG_MORE);
+  this->client_->add(reinterpret_cast<char *>(buffer.get_buffer()->data()), buffer.get_buffer()->size(),
+                     ASYNC_WRITE_FLAG_COPY);
   bool ret = this->client_->send();
   return ret;
 }

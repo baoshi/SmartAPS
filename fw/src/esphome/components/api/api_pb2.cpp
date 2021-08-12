@@ -1,3 +1,5 @@
+// This file was automatically generated with a tool.
+// See scripts/api_protobuf/api_protobuf.py
 #include "api_pb2.h"
 #include "esphome/core/log.h"
 
@@ -50,6 +52,38 @@ template<> const char *proto_enum_to_string<enums::FanSpeed>(enums::FanSpeed val
       return "UNKNOWN";
   }
 }
+template<> const char *proto_enum_to_string<enums::FanDirection>(enums::FanDirection value) {
+  switch (value) {
+    case enums::FAN_DIRECTION_FORWARD:
+      return "FAN_DIRECTION_FORWARD";
+    case enums::FAN_DIRECTION_REVERSE:
+      return "FAN_DIRECTION_REVERSE";
+    default:
+      return "UNKNOWN";
+  }
+}
+template<> const char *proto_enum_to_string<enums::SensorStateClass>(enums::SensorStateClass value) {
+  switch (value) {
+    case enums::STATE_CLASS_NONE:
+      return "STATE_CLASS_NONE";
+    case enums::STATE_CLASS_MEASUREMENT:
+      return "STATE_CLASS_MEASUREMENT";
+    default:
+      return "UNKNOWN";
+  }
+}
+template<> const char *proto_enum_to_string<enums::SensorLastResetType>(enums::SensorLastResetType value) {
+  switch (value) {
+    case enums::LAST_RESET_NONE:
+      return "LAST_RESET_NONE";
+    case enums::LAST_RESET_NEVER:
+      return "LAST_RESET_NEVER";
+    case enums::LAST_RESET_AUTO:
+      return "LAST_RESET_AUTO";
+    default:
+      return "UNKNOWN";
+  }
+}
 template<> const char *proto_enum_to_string<enums::LogLevel>(enums::LogLevel value) {
   switch (value) {
     case enums::LOG_LEVEL_NONE:
@@ -96,12 +130,56 @@ template<> const char *proto_enum_to_string<enums::ClimateMode>(enums::ClimateMo
   switch (value) {
     case enums::CLIMATE_MODE_OFF:
       return "CLIMATE_MODE_OFF";
-    case enums::CLIMATE_MODE_AUTO:
-      return "CLIMATE_MODE_AUTO";
+    case enums::CLIMATE_MODE_HEAT_COOL:
+      return "CLIMATE_MODE_HEAT_COOL";
     case enums::CLIMATE_MODE_COOL:
       return "CLIMATE_MODE_COOL";
     case enums::CLIMATE_MODE_HEAT:
       return "CLIMATE_MODE_HEAT";
+    case enums::CLIMATE_MODE_FAN_ONLY:
+      return "CLIMATE_MODE_FAN_ONLY";
+    case enums::CLIMATE_MODE_DRY:
+      return "CLIMATE_MODE_DRY";
+    case enums::CLIMATE_MODE_AUTO:
+      return "CLIMATE_MODE_AUTO";
+    default:
+      return "UNKNOWN";
+  }
+}
+template<> const char *proto_enum_to_string<enums::ClimateFanMode>(enums::ClimateFanMode value) {
+  switch (value) {
+    case enums::CLIMATE_FAN_ON:
+      return "CLIMATE_FAN_ON";
+    case enums::CLIMATE_FAN_OFF:
+      return "CLIMATE_FAN_OFF";
+    case enums::CLIMATE_FAN_AUTO:
+      return "CLIMATE_FAN_AUTO";
+    case enums::CLIMATE_FAN_LOW:
+      return "CLIMATE_FAN_LOW";
+    case enums::CLIMATE_FAN_MEDIUM:
+      return "CLIMATE_FAN_MEDIUM";
+    case enums::CLIMATE_FAN_HIGH:
+      return "CLIMATE_FAN_HIGH";
+    case enums::CLIMATE_FAN_MIDDLE:
+      return "CLIMATE_FAN_MIDDLE";
+    case enums::CLIMATE_FAN_FOCUS:
+      return "CLIMATE_FAN_FOCUS";
+    case enums::CLIMATE_FAN_DIFFUSE:
+      return "CLIMATE_FAN_DIFFUSE";
+    default:
+      return "UNKNOWN";
+  }
+}
+template<> const char *proto_enum_to_string<enums::ClimateSwingMode>(enums::ClimateSwingMode value) {
+  switch (value) {
+    case enums::CLIMATE_SWING_OFF:
+      return "CLIMATE_SWING_OFF";
+    case enums::CLIMATE_SWING_BOTH:
+      return "CLIMATE_SWING_BOTH";
+    case enums::CLIMATE_SWING_VERTICAL:
+      return "CLIMATE_SWING_VERTICAL";
+    case enums::CLIMATE_SWING_HORIZONTAL:
+      return "CLIMATE_SWING_HORIZONTAL";
     default:
       return "UNKNOWN";
   }
@@ -114,6 +192,34 @@ template<> const char *proto_enum_to_string<enums::ClimateAction>(enums::Climate
       return "CLIMATE_ACTION_COOLING";
     case enums::CLIMATE_ACTION_HEATING:
       return "CLIMATE_ACTION_HEATING";
+    case enums::CLIMATE_ACTION_IDLE:
+      return "CLIMATE_ACTION_IDLE";
+    case enums::CLIMATE_ACTION_DRYING:
+      return "CLIMATE_ACTION_DRYING";
+    case enums::CLIMATE_ACTION_FAN:
+      return "CLIMATE_ACTION_FAN";
+    default:
+      return "UNKNOWN";
+  }
+}
+template<> const char *proto_enum_to_string<enums::ClimatePreset>(enums::ClimatePreset value) {
+  switch (value) {
+    case enums::CLIMATE_PRESET_NONE:
+      return "CLIMATE_PRESET_NONE";
+    case enums::CLIMATE_PRESET_HOME:
+      return "CLIMATE_PRESET_HOME";
+    case enums::CLIMATE_PRESET_AWAY:
+      return "CLIMATE_PRESET_AWAY";
+    case enums::CLIMATE_PRESET_BOOST:
+      return "CLIMATE_PRESET_BOOST";
+    case enums::CLIMATE_PRESET_COMFORT:
+      return "CLIMATE_PRESET_COMFORT";
+    case enums::CLIMATE_PRESET_ECO:
+      return "CLIMATE_PRESET_ECO";
+    case enums::CLIMATE_PRESET_SLEEP:
+      return "CLIMATE_PRESET_SLEEP";
+    case enums::CLIMATE_PRESET_ACTIVITY:
+      return "CLIMATE_PRESET_ACTIVITY";
     default:
       return "UNKNOWN";
   }
@@ -268,6 +374,14 @@ bool DeviceInfoResponse::decode_length(uint32_t field_id, ProtoLengthDelimited v
       this->model = value.as_string();
       return true;
     }
+    case 8: {
+      this->project_name = value.as_string();
+      return true;
+    }
+    case 9: {
+      this->project_version = value.as_string();
+      return true;
+    }
     default:
       return false;
   }
@@ -280,6 +394,8 @@ void DeviceInfoResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_string(5, this->compilation_time);
   buffer.encode_string(6, this->model);
   buffer.encode_bool(7, this->has_deep_sleep);
+  buffer.encode_string(8, this->project_name);
+  buffer.encode_string(9, this->project_version);
 }
 void DeviceInfoResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -310,6 +426,14 @@ void DeviceInfoResponse::dump_to(std::string &out) const {
 
   out.append("  has_deep_sleep: ");
   out.append(YESNO(this->has_deep_sleep));
+  out.append("\n");
+
+  out.append("  project_name: ");
+  out.append("'").append(this->project_name).append("'");
+  out.append("\n");
+
+  out.append("  project_version: ");
+  out.append("'").append(this->project_version).append("'");
   out.append("\n");
   out.append("}");
 }
@@ -710,6 +834,14 @@ bool ListEntitiesFanResponse::decode_varint(uint32_t field_id, ProtoVarInt value
       this->supports_speed = value.as_bool();
       return true;
     }
+    case 7: {
+      this->supports_direction = value.as_bool();
+      return true;
+    }
+    case 8: {
+      this->supported_speed_count = value.as_int32();
+      return true;
+    }
     default:
       return false;
   }
@@ -749,6 +881,8 @@ void ListEntitiesFanResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_string(4, this->unique_id);
   buffer.encode_bool(5, this->supports_oscillation);
   buffer.encode_bool(6, this->supports_speed);
+  buffer.encode_bool(7, this->supports_direction);
+  buffer.encode_int32(8, this->supported_speed_count);
 }
 void ListEntitiesFanResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -777,6 +911,15 @@ void ListEntitiesFanResponse::dump_to(std::string &out) const {
   out.append("  supports_speed: ");
   out.append(YESNO(this->supports_speed));
   out.append("\n");
+
+  out.append("  supports_direction: ");
+  out.append(YESNO(this->supports_direction));
+  out.append("\n");
+
+  out.append("  supported_speed_count: ");
+  sprintf(buffer, "%d", this->supported_speed_count);
+  out.append(buffer);
+  out.append("\n");
   out.append("}");
 }
 bool FanStateResponse::decode_varint(uint32_t field_id, ProtoVarInt value) {
@@ -791,6 +934,14 @@ bool FanStateResponse::decode_varint(uint32_t field_id, ProtoVarInt value) {
     }
     case 4: {
       this->speed = value.as_enum<enums::FanSpeed>();
+      return true;
+    }
+    case 5: {
+      this->direction = value.as_enum<enums::FanDirection>();
+      return true;
+    }
+    case 6: {
+      this->speed_level = value.as_int32();
       return true;
     }
     default:
@@ -812,6 +963,8 @@ void FanStateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_bool(2, this->state);
   buffer.encode_bool(3, this->oscillating);
   buffer.encode_enum<enums::FanSpeed>(4, this->speed);
+  buffer.encode_enum<enums::FanDirection>(5, this->direction);
+  buffer.encode_int32(6, this->speed_level);
 }
 void FanStateResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -831,6 +984,15 @@ void FanStateResponse::dump_to(std::string &out) const {
 
   out.append("  speed: ");
   out.append(proto_enum_to_string<enums::FanSpeed>(this->speed));
+  out.append("\n");
+
+  out.append("  direction: ");
+  out.append(proto_enum_to_string<enums::FanDirection>(this->direction));
+  out.append("\n");
+
+  out.append("  speed_level: ");
+  sprintf(buffer, "%d", this->speed_level);
+  out.append(buffer);
   out.append("\n");
   out.append("}");
 }
@@ -860,6 +1022,22 @@ bool FanCommandRequest::decode_varint(uint32_t field_id, ProtoVarInt value) {
       this->oscillating = value.as_bool();
       return true;
     }
+    case 8: {
+      this->has_direction = value.as_bool();
+      return true;
+    }
+    case 9: {
+      this->direction = value.as_enum<enums::FanDirection>();
+      return true;
+    }
+    case 10: {
+      this->has_speed_level = value.as_bool();
+      return true;
+    }
+    case 11: {
+      this->speed_level = value.as_int32();
+      return true;
+    }
     default:
       return false;
   }
@@ -882,6 +1060,10 @@ void FanCommandRequest::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_enum<enums::FanSpeed>(5, this->speed);
   buffer.encode_bool(6, this->has_oscillating);
   buffer.encode_bool(7, this->oscillating);
+  buffer.encode_bool(8, this->has_direction);
+  buffer.encode_enum<enums::FanDirection>(9, this->direction);
+  buffer.encode_bool(10, this->has_speed_level);
+  buffer.encode_int32(11, this->speed_level);
 }
 void FanCommandRequest::dump_to(std::string &out) const {
   char buffer[64];
@@ -913,6 +1095,23 @@ void FanCommandRequest::dump_to(std::string &out) const {
 
   out.append("  oscillating: ");
   out.append(YESNO(this->oscillating));
+  out.append("\n");
+
+  out.append("  has_direction: ");
+  out.append(YESNO(this->has_direction));
+  out.append("\n");
+
+  out.append("  direction: ");
+  out.append(proto_enum_to_string<enums::FanDirection>(this->direction));
+  out.append("\n");
+
+  out.append("  has_speed_level: ");
+  out.append(YESNO(this->has_speed_level));
+  out.append("\n");
+
+  out.append("  speed_level: ");
+  sprintf(buffer, "%d", this->speed_level);
+  out.append(buffer);
   out.append("\n");
   out.append("}");
 }
@@ -1076,6 +1275,10 @@ bool LightStateResponse::decode_32bit(uint32_t field_id, Proto32Bit value) {
       this->brightness = value.as_float();
       return true;
     }
+    case 10: {
+      this->color_brightness = value.as_float();
+      return true;
+    }
     case 4: {
       this->red = value.as_float();
       return true;
@@ -1104,6 +1307,7 @@ void LightStateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_fixed32(1, this->key);
   buffer.encode_bool(2, this->state);
   buffer.encode_float(3, this->brightness);
+  buffer.encode_float(10, this->color_brightness);
   buffer.encode_float(4, this->red);
   buffer.encode_float(5, this->green);
   buffer.encode_float(6, this->blue);
@@ -1125,6 +1329,11 @@ void LightStateResponse::dump_to(std::string &out) const {
 
   out.append("  brightness: ");
   sprintf(buffer, "%g", this->brightness);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  color_brightness: ");
+  sprintf(buffer, "%g", this->color_brightness);
   out.append(buffer);
   out.append("\n");
 
@@ -1170,6 +1379,10 @@ bool LightCommandRequest::decode_varint(uint32_t field_id, ProtoVarInt value) {
     }
     case 4: {
       this->has_brightness = value.as_bool();
+      return true;
+    }
+    case 20: {
+      this->has_color_brightness = value.as_bool();
       return true;
     }
     case 6: {
@@ -1228,6 +1441,10 @@ bool LightCommandRequest::decode_32bit(uint32_t field_id, Proto32Bit value) {
       this->brightness = value.as_float();
       return true;
     }
+    case 21: {
+      this->color_brightness = value.as_float();
+      return true;
+    }
     case 7: {
       this->red = value.as_float();
       return true;
@@ -1258,6 +1475,8 @@ void LightCommandRequest::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_bool(3, this->state);
   buffer.encode_bool(4, this->has_brightness);
   buffer.encode_float(5, this->brightness);
+  buffer.encode_bool(20, this->has_color_brightness);
+  buffer.encode_float(21, this->color_brightness);
   buffer.encode_bool(6, this->has_rgb);
   buffer.encode_float(7, this->red);
   buffer.encode_float(8, this->green);
@@ -1295,6 +1514,15 @@ void LightCommandRequest::dump_to(std::string &out) const {
 
   out.append("  brightness: ");
   sprintf(buffer, "%g", this->brightness);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  has_color_brightness: ");
+  out.append(YESNO(this->has_color_brightness));
+  out.append("\n");
+
+  out.append("  color_brightness: ");
+  sprintf(buffer, "%g", this->color_brightness);
   out.append(buffer);
   out.append("\n");
 
@@ -1372,6 +1600,14 @@ bool ListEntitiesSensorResponse::decode_varint(uint32_t field_id, ProtoVarInt va
       this->force_update = value.as_bool();
       return true;
     }
+    case 10: {
+      this->state_class = value.as_enum<enums::SensorStateClass>();
+      return true;
+    }
+    case 11: {
+      this->last_reset_type = value.as_enum<enums::SensorLastResetType>();
+      return true;
+    }
     default:
       return false;
   }
@@ -1398,6 +1634,10 @@ bool ListEntitiesSensorResponse::decode_length(uint32_t field_id, ProtoLengthDel
       this->unit_of_measurement = value.as_string();
       return true;
     }
+    case 9: {
+      this->device_class = value.as_string();
+      return true;
+    }
     default:
       return false;
   }
@@ -1421,6 +1661,9 @@ void ListEntitiesSensorResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_string(6, this->unit_of_measurement);
   buffer.encode_int32(7, this->accuracy_decimals);
   buffer.encode_bool(8, this->force_update);
+  buffer.encode_string(9, this->device_class);
+  buffer.encode_enum<enums::SensorStateClass>(10, this->state_class);
+  buffer.encode_enum<enums::SensorLastResetType>(11, this->last_reset_type);
 }
 void ListEntitiesSensorResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -1457,6 +1700,18 @@ void ListEntitiesSensorResponse::dump_to(std::string &out) const {
 
   out.append("  force_update: ");
   out.append(YESNO(this->force_update));
+  out.append("\n");
+
+  out.append("  device_class: ");
+  out.append("'").append(this->device_class).append("'");
+  out.append("\n");
+
+  out.append("  state_class: ");
+  out.append(proto_enum_to_string<enums::SensorStateClass>(this->state_class));
+  out.append("\n");
+
+  out.append("  last_reset_type: ");
+  out.append(proto_enum_to_string<enums::SensorLastResetType>(this->last_reset_type));
   out.append("\n");
   out.append("}");
 }
@@ -1979,18 +2234,27 @@ bool SubscribeHomeAssistantStateResponse::decode_length(uint32_t field_id, Proto
       this->entity_id = value.as_string();
       return true;
     }
+    case 2: {
+      this->attribute = value.as_string();
+      return true;
+    }
     default:
       return false;
   }
 }
 void SubscribeHomeAssistantStateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_string(1, this->entity_id);
+  buffer.encode_string(2, this->attribute);
 }
 void SubscribeHomeAssistantStateResponse::dump_to(std::string &out) const {
   char buffer[64];
   out.append("SubscribeHomeAssistantStateResponse {\n");
   out.append("  entity_id: ");
   out.append("'").append(this->entity_id).append("'");
+  out.append("\n");
+
+  out.append("  attribute: ");
+  out.append("'").append(this->attribute).append("'");
   out.append("\n");
   out.append("}");
 }
@@ -2004,6 +2268,10 @@ bool HomeAssistantStateResponse::decode_length(uint32_t field_id, ProtoLengthDel
       this->state = value.as_string();
       return true;
     }
+    case 3: {
+      this->attribute = value.as_string();
+      return true;
+    }
     default:
       return false;
   }
@@ -2011,6 +2279,7 @@ bool HomeAssistantStateResponse::decode_length(uint32_t field_id, ProtoLengthDel
 void HomeAssistantStateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_string(1, this->entity_id);
   buffer.encode_string(2, this->state);
+  buffer.encode_string(3, this->attribute);
 }
 void HomeAssistantStateResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -2021,6 +2290,10 @@ void HomeAssistantStateResponse::dump_to(std::string &out) const {
 
   out.append("  state: ");
   out.append("'").append(this->state).append("'");
+  out.append("\n");
+
+  out.append("  attribute: ");
+  out.append("'").append(this->attribute).append("'");
   out.append("\n");
   out.append("}");
 }
@@ -2451,11 +2724,23 @@ bool ListEntitiesClimateResponse::decode_varint(uint32_t field_id, ProtoVarInt v
       return true;
     }
     case 11: {
-      this->supports_away = value.as_bool();
+      this->legacy_supports_away = value.as_bool();
       return true;
     }
     case 12: {
       this->supports_action = value.as_bool();
+      return true;
+    }
+    case 13: {
+      this->supported_fan_modes.push_back(value.as_enum<enums::ClimateFanMode>());
+      return true;
+    }
+    case 14: {
+      this->supported_swing_modes.push_back(value.as_enum<enums::ClimateSwingMode>());
+      return true;
+    }
+    case 16: {
+      this->supported_presets.push_back(value.as_enum<enums::ClimatePreset>());
       return true;
     }
     default:
@@ -2474,6 +2759,14 @@ bool ListEntitiesClimateResponse::decode_length(uint32_t field_id, ProtoLengthDe
     }
     case 4: {
       this->unique_id = value.as_string();
+      return true;
+    }
+    case 15: {
+      this->supported_custom_fan_modes.push_back(value.as_string());
+      return true;
+    }
+    case 17: {
+      this->supported_custom_presets.push_back(value.as_string());
       return true;
     }
     default:
@@ -2515,8 +2808,23 @@ void ListEntitiesClimateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_float(8, this->visual_min_temperature);
   buffer.encode_float(9, this->visual_max_temperature);
   buffer.encode_float(10, this->visual_temperature_step);
-  buffer.encode_bool(11, this->supports_away);
+  buffer.encode_bool(11, this->legacy_supports_away);
   buffer.encode_bool(12, this->supports_action);
+  for (auto &it : this->supported_fan_modes) {
+    buffer.encode_enum<enums::ClimateFanMode>(13, it, true);
+  }
+  for (auto &it : this->supported_swing_modes) {
+    buffer.encode_enum<enums::ClimateSwingMode>(14, it, true);
+  }
+  for (auto &it : this->supported_custom_fan_modes) {
+    buffer.encode_string(15, it, true);
+  }
+  for (auto &it : this->supported_presets) {
+    buffer.encode_enum<enums::ClimatePreset>(16, it, true);
+  }
+  for (auto &it : this->supported_custom_presets) {
+    buffer.encode_string(17, it, true);
+  }
 }
 void ListEntitiesClimateResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -2567,13 +2875,43 @@ void ListEntitiesClimateResponse::dump_to(std::string &out) const {
   out.append(buffer);
   out.append("\n");
 
-  out.append("  supports_away: ");
-  out.append(YESNO(this->supports_away));
+  out.append("  legacy_supports_away: ");
+  out.append(YESNO(this->legacy_supports_away));
   out.append("\n");
 
   out.append("  supports_action: ");
   out.append(YESNO(this->supports_action));
   out.append("\n");
+
+  for (const auto &it : this->supported_fan_modes) {
+    out.append("  supported_fan_modes: ");
+    out.append(proto_enum_to_string<enums::ClimateFanMode>(it));
+    out.append("\n");
+  }
+
+  for (const auto &it : this->supported_swing_modes) {
+    out.append("  supported_swing_modes: ");
+    out.append(proto_enum_to_string<enums::ClimateSwingMode>(it));
+    out.append("\n");
+  }
+
+  for (const auto &it : this->supported_custom_fan_modes) {
+    out.append("  supported_custom_fan_modes: ");
+    out.append("'").append(it).append("'");
+    out.append("\n");
+  }
+
+  for (const auto &it : this->supported_presets) {
+    out.append("  supported_presets: ");
+    out.append(proto_enum_to_string<enums::ClimatePreset>(it));
+    out.append("\n");
+  }
+
+  for (const auto &it : this->supported_custom_presets) {
+    out.append("  supported_custom_presets: ");
+    out.append("'").append(it).append("'");
+    out.append("\n");
+  }
   out.append("}");
 }
 bool ClimateStateResponse::decode_varint(uint32_t field_id, ProtoVarInt value) {
@@ -2583,11 +2921,37 @@ bool ClimateStateResponse::decode_varint(uint32_t field_id, ProtoVarInt value) {
       return true;
     }
     case 7: {
-      this->away = value.as_bool();
+      this->legacy_away = value.as_bool();
       return true;
     }
     case 8: {
       this->action = value.as_enum<enums::ClimateAction>();
+      return true;
+    }
+    case 9: {
+      this->fan_mode = value.as_enum<enums::ClimateFanMode>();
+      return true;
+    }
+    case 10: {
+      this->swing_mode = value.as_enum<enums::ClimateSwingMode>();
+      return true;
+    }
+    case 12: {
+      this->preset = value.as_enum<enums::ClimatePreset>();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+bool ClimateStateResponse::decode_length(uint32_t field_id, ProtoLengthDelimited value) {
+  switch (field_id) {
+    case 11: {
+      this->custom_fan_mode = value.as_string();
+      return true;
+    }
+    case 13: {
+      this->custom_preset = value.as_string();
       return true;
     }
     default:
@@ -2627,8 +2991,13 @@ void ClimateStateResponse::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_float(4, this->target_temperature);
   buffer.encode_float(5, this->target_temperature_low);
   buffer.encode_float(6, this->target_temperature_high);
-  buffer.encode_bool(7, this->away);
+  buffer.encode_bool(7, this->legacy_away);
   buffer.encode_enum<enums::ClimateAction>(8, this->action);
+  buffer.encode_enum<enums::ClimateFanMode>(9, this->fan_mode);
+  buffer.encode_enum<enums::ClimateSwingMode>(10, this->swing_mode);
+  buffer.encode_string(11, this->custom_fan_mode);
+  buffer.encode_enum<enums::ClimatePreset>(12, this->preset);
+  buffer.encode_string(13, this->custom_preset);
 }
 void ClimateStateResponse::dump_to(std::string &out) const {
   char buffer[64];
@@ -2662,12 +3031,32 @@ void ClimateStateResponse::dump_to(std::string &out) const {
   out.append(buffer);
   out.append("\n");
 
-  out.append("  away: ");
-  out.append(YESNO(this->away));
+  out.append("  legacy_away: ");
+  out.append(YESNO(this->legacy_away));
   out.append("\n");
 
   out.append("  action: ");
   out.append(proto_enum_to_string<enums::ClimateAction>(this->action));
+  out.append("\n");
+
+  out.append("  fan_mode: ");
+  out.append(proto_enum_to_string<enums::ClimateFanMode>(this->fan_mode));
+  out.append("\n");
+
+  out.append("  swing_mode: ");
+  out.append(proto_enum_to_string<enums::ClimateSwingMode>(this->swing_mode));
+  out.append("\n");
+
+  out.append("  custom_fan_mode: ");
+  out.append("'").append(this->custom_fan_mode).append("'");
+  out.append("\n");
+
+  out.append("  preset: ");
+  out.append(proto_enum_to_string<enums::ClimatePreset>(this->preset));
+  out.append("\n");
+
+  out.append("  custom_preset: ");
+  out.append("'").append(this->custom_preset).append("'");
   out.append("\n");
   out.append("}");
 }
@@ -2694,11 +3083,57 @@ bool ClimateCommandRequest::decode_varint(uint32_t field_id, ProtoVarInt value) 
       return true;
     }
     case 10: {
-      this->has_away = value.as_bool();
+      this->has_legacy_away = value.as_bool();
       return true;
     }
     case 11: {
-      this->away = value.as_bool();
+      this->legacy_away = value.as_bool();
+      return true;
+    }
+    case 12: {
+      this->has_fan_mode = value.as_bool();
+      return true;
+    }
+    case 13: {
+      this->fan_mode = value.as_enum<enums::ClimateFanMode>();
+      return true;
+    }
+    case 14: {
+      this->has_swing_mode = value.as_bool();
+      return true;
+    }
+    case 15: {
+      this->swing_mode = value.as_enum<enums::ClimateSwingMode>();
+      return true;
+    }
+    case 16: {
+      this->has_custom_fan_mode = value.as_bool();
+      return true;
+    }
+    case 18: {
+      this->has_preset = value.as_bool();
+      return true;
+    }
+    case 19: {
+      this->preset = value.as_enum<enums::ClimatePreset>();
+      return true;
+    }
+    case 20: {
+      this->has_custom_preset = value.as_bool();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+bool ClimateCommandRequest::decode_length(uint32_t field_id, ProtoLengthDelimited value) {
+  switch (field_id) {
+    case 17: {
+      this->custom_fan_mode = value.as_string();
+      return true;
+    }
+    case 21: {
+      this->custom_preset = value.as_string();
       return true;
     }
     default:
@@ -2737,8 +3172,18 @@ void ClimateCommandRequest::encode(ProtoWriteBuffer buffer) const {
   buffer.encode_float(7, this->target_temperature_low);
   buffer.encode_bool(8, this->has_target_temperature_high);
   buffer.encode_float(9, this->target_temperature_high);
-  buffer.encode_bool(10, this->has_away);
-  buffer.encode_bool(11, this->away);
+  buffer.encode_bool(10, this->has_legacy_away);
+  buffer.encode_bool(11, this->legacy_away);
+  buffer.encode_bool(12, this->has_fan_mode);
+  buffer.encode_enum<enums::ClimateFanMode>(13, this->fan_mode);
+  buffer.encode_bool(14, this->has_swing_mode);
+  buffer.encode_enum<enums::ClimateSwingMode>(15, this->swing_mode);
+  buffer.encode_bool(16, this->has_custom_fan_mode);
+  buffer.encode_string(17, this->custom_fan_mode);
+  buffer.encode_bool(18, this->has_preset);
+  buffer.encode_enum<enums::ClimatePreset>(19, this->preset);
+  buffer.encode_bool(20, this->has_custom_preset);
+  buffer.encode_string(21, this->custom_preset);
 }
 void ClimateCommandRequest::dump_to(std::string &out) const {
   char buffer[64];
@@ -2783,12 +3228,225 @@ void ClimateCommandRequest::dump_to(std::string &out) const {
   out.append(buffer);
   out.append("\n");
 
-  out.append("  has_away: ");
-  out.append(YESNO(this->has_away));
+  out.append("  has_legacy_away: ");
+  out.append(YESNO(this->has_legacy_away));
   out.append("\n");
 
-  out.append("  away: ");
-  out.append(YESNO(this->away));
+  out.append("  legacy_away: ");
+  out.append(YESNO(this->legacy_away));
+  out.append("\n");
+
+  out.append("  has_fan_mode: ");
+  out.append(YESNO(this->has_fan_mode));
+  out.append("\n");
+
+  out.append("  fan_mode: ");
+  out.append(proto_enum_to_string<enums::ClimateFanMode>(this->fan_mode));
+  out.append("\n");
+
+  out.append("  has_swing_mode: ");
+  out.append(YESNO(this->has_swing_mode));
+  out.append("\n");
+
+  out.append("  swing_mode: ");
+  out.append(proto_enum_to_string<enums::ClimateSwingMode>(this->swing_mode));
+  out.append("\n");
+
+  out.append("  has_custom_fan_mode: ");
+  out.append(YESNO(this->has_custom_fan_mode));
+  out.append("\n");
+
+  out.append("  custom_fan_mode: ");
+  out.append("'").append(this->custom_fan_mode).append("'");
+  out.append("\n");
+
+  out.append("  has_preset: ");
+  out.append(YESNO(this->has_preset));
+  out.append("\n");
+
+  out.append("  preset: ");
+  out.append(proto_enum_to_string<enums::ClimatePreset>(this->preset));
+  out.append("\n");
+
+  out.append("  has_custom_preset: ");
+  out.append(YESNO(this->has_custom_preset));
+  out.append("\n");
+
+  out.append("  custom_preset: ");
+  out.append("'").append(this->custom_preset).append("'");
+  out.append("\n");
+  out.append("}");
+}
+bool ListEntitiesNumberResponse::decode_length(uint32_t field_id, ProtoLengthDelimited value) {
+  switch (field_id) {
+    case 1: {
+      this->object_id = value.as_string();
+      return true;
+    }
+    case 3: {
+      this->name = value.as_string();
+      return true;
+    }
+    case 4: {
+      this->unique_id = value.as_string();
+      return true;
+    }
+    case 5: {
+      this->icon = value.as_string();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+bool ListEntitiesNumberResponse::decode_32bit(uint32_t field_id, Proto32Bit value) {
+  switch (field_id) {
+    case 2: {
+      this->key = value.as_fixed32();
+      return true;
+    }
+    case 6: {
+      this->min_value = value.as_float();
+      return true;
+    }
+    case 7: {
+      this->max_value = value.as_float();
+      return true;
+    }
+    case 8: {
+      this->step = value.as_float();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+void ListEntitiesNumberResponse::encode(ProtoWriteBuffer buffer) const {
+  buffer.encode_string(1, this->object_id);
+  buffer.encode_fixed32(2, this->key);
+  buffer.encode_string(3, this->name);
+  buffer.encode_string(4, this->unique_id);
+  buffer.encode_string(5, this->icon);
+  buffer.encode_float(6, this->min_value);
+  buffer.encode_float(7, this->max_value);
+  buffer.encode_float(8, this->step);
+}
+void ListEntitiesNumberResponse::dump_to(std::string &out) const {
+  char buffer[64];
+  out.append("ListEntitiesNumberResponse {\n");
+  out.append("  object_id: ");
+  out.append("'").append(this->object_id).append("'");
+  out.append("\n");
+
+  out.append("  key: ");
+  sprintf(buffer, "%u", this->key);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  name: ");
+  out.append("'").append(this->name).append("'");
+  out.append("\n");
+
+  out.append("  unique_id: ");
+  out.append("'").append(this->unique_id).append("'");
+  out.append("\n");
+
+  out.append("  icon: ");
+  out.append("'").append(this->icon).append("'");
+  out.append("\n");
+
+  out.append("  min_value: ");
+  sprintf(buffer, "%g", this->min_value);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  max_value: ");
+  sprintf(buffer, "%g", this->max_value);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  step: ");
+  sprintf(buffer, "%g", this->step);
+  out.append(buffer);
+  out.append("\n");
+  out.append("}");
+}
+bool NumberStateResponse::decode_varint(uint32_t field_id, ProtoVarInt value) {
+  switch (field_id) {
+    case 3: {
+      this->missing_state = value.as_bool();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+bool NumberStateResponse::decode_32bit(uint32_t field_id, Proto32Bit value) {
+  switch (field_id) {
+    case 1: {
+      this->key = value.as_fixed32();
+      return true;
+    }
+    case 2: {
+      this->state = value.as_float();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+void NumberStateResponse::encode(ProtoWriteBuffer buffer) const {
+  buffer.encode_fixed32(1, this->key);
+  buffer.encode_float(2, this->state);
+  buffer.encode_bool(3, this->missing_state);
+}
+void NumberStateResponse::dump_to(std::string &out) const {
+  char buffer[64];
+  out.append("NumberStateResponse {\n");
+  out.append("  key: ");
+  sprintf(buffer, "%u", this->key);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  state: ");
+  sprintf(buffer, "%g", this->state);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  missing_state: ");
+  out.append(YESNO(this->missing_state));
+  out.append("\n");
+  out.append("}");
+}
+bool NumberCommandRequest::decode_32bit(uint32_t field_id, Proto32Bit value) {
+  switch (field_id) {
+    case 1: {
+      this->key = value.as_fixed32();
+      return true;
+    }
+    case 2: {
+      this->state = value.as_float();
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+void NumberCommandRequest::encode(ProtoWriteBuffer buffer) const {
+  buffer.encode_fixed32(1, this->key);
+  buffer.encode_float(2, this->state);
+}
+void NumberCommandRequest::dump_to(std::string &out) const {
+  char buffer[64];
+  out.append("NumberCommandRequest {\n");
+  out.append("  key: ");
+  sprintf(buffer, "%u", this->key);
+  out.append(buffer);
+  out.append("\n");
+
+  out.append("  state: ");
+  sprintf(buffer, "%g", this->state);
+  out.append(buffer);
   out.append("\n");
   out.append("}");
 }
